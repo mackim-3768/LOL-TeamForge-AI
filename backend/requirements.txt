@@ -5,3 +5,4 @@ requests
 apscheduler
 pydantic
 python-dotenv
+openai
