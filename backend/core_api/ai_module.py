@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
+from openai import OpenAI
+from backend.collector.config import Config
 
 class AIProvider(ABC):
     @abstractmethod
@@ -21,19 +23,38 @@ class MockAIProvider(AIProvider):
 
 class OpenAIProvider(AIProvider):
     def __init__(self, api_key: str):
-        # self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key)
         self.api_key = api_key
 
     def analyze_summoner_performance(self, summoner_name: str, role_stats: List[Dict]) -> str:
-        # Construct Prompt
-        # call openai
-        return "OpenAI integration not fully active without key."
+        prompt = f"Analyze the performance of summoner {summoner_name} based on the following stats:\n{role_stats}\nProvide insights on strengths and weaknesses."
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a League of Legends coach assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error calling OpenAI: {str(e)}"
 
     def recommend_team_composition(self, summoners: List[str], summoner_stats: Dict[str, List[Dict]]) -> str:
-        # Construct Context
-        # call openai
-        return "OpenAI integration not fully active without key."
+        prompt = f"Given the following summoners and their stats, recommend the best team composition (assign roles):\nSummoners: {summoners}\nStats: {summoner_stats}"
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a League of Legends team strategist."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error calling OpenAI: {str(e)}"
 
 def get_ai_provider():
-    # Logic to switch based on env or config
+    if Config.OPENAI_API_KEY:
+        return OpenAIProvider(Config.OPENAI_API_KEY)
     return MockAIProvider()
