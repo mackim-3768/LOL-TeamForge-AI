@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { Summoner } from '../api';
-import { Container, Typography, Button, FormControl, InputLabel, Select, MenuItem, Chip, Box, CircularProgress, Card, CardContent } from '@mui/material';
+import { Container, Typography, Button, FormControl, InputLabel, Select, MenuItem, Chip, Box, Card, CardContent } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 
 const TeamBuilder: React.FC = () => {
   const [allSummoners, setAllSummoners] = useState<Summoner[]>([]);
@@ -13,13 +14,17 @@ const TeamBuilder: React.FC = () => {
     api.getSummoners().then(res => setAllSummoners(res.data));
   }, []);
 
-  const handleSelect = (event: any) => {
+  const handleSelect = (event: SelectChangeEvent<string[]>) => {
     const {
       target: { value },
     } = event;
+
+    // value can be string or string[]
+    const valueArray = typeof value === 'string' ? value.split(',') : value;
+
     // Limit to 5
-    if (value.length <= 5) {
-      setSelectedSummoners(typeof value === 'string' ? value.split(',') : value);
+    if (valueArray.length <= 5) {
+      setSelectedSummoners(valueArray);
     }
   };
 

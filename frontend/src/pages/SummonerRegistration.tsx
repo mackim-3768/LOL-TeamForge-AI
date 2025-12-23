@@ -3,7 +3,7 @@ import { api } from '../api';
 import type { Summoner } from '../api';
 import { Container, Typography, TextField, Button, List, ListItem, ListItemText, Paper } from '@mui/material';
 
-const SummonerList: React.FC = () => {
+const SummonerRegistration: React.FC = () => {
   const [summoners, setSummoners] = useState<Summoner[]>([]);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,9 @@ const SummonerList: React.FC = () => {
       await api.registerSummoner(newName);
       setNewName('');
       loadSummoners();
-    } catch (err: any) {
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _ = err;
       setError('Failed to register (Likely not found or invalid key)');
     } finally {
       setLoading(false);
@@ -39,7 +41,7 @@ const SummonerList: React.FC = () => {
 
   return (
     <Container maxWidth="sm" style={{ marginTop: '2rem' }}>
-      <Typography variant="h4" gutterBottom>Summoner Registry</Typography>
+      <Typography variant="h4" gutterBottom>Summoner Registration</Typography>
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
         <TextField 
           label="Summoner Name" 
@@ -48,10 +50,12 @@ const SummonerList: React.FC = () => {
           fullWidth
         />
         <Button variant="contained" onClick={handleRegister} disabled={loading}>
-          {loading ? 'Adding...' : 'Add'}
+          {loading ? 'Adding...' : 'Register'}
         </Button>
       </div>
       {error && <Typography color="error">{error}</Typography>}
+
+      <Typography variant="h6" gutterBottom style={{ marginTop: '2rem' }}>Registered Summoners</Typography>
       <Paper>
         <List>
           {summoners.map((s) => (
@@ -65,4 +69,4 @@ const SummonerList: React.FC = () => {
   );
 };
 
-export default SummonerList;
+export default SummonerRegistration;
