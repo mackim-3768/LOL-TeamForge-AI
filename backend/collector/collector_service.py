@@ -81,8 +81,7 @@ class CollectorService:
             session.commit()
             session.refresh(new_summoner)
             
-            # Initial fetch
-            self.update_summoner_data(session, new_summoner)
+            # Note: Initial fetch is now handled by the async queue
             
             return new_summoner
         finally:
