@@ -38,6 +38,7 @@ class OpenAIProvider(AIProvider):
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a League of Legends analyst. Provide concise and insightful analysis."},
+                    {"role": "system", "content": "You are a League of Legends coach assistant."},
                     {"role": "user", "content": prompt}
                 ]
             )
@@ -63,6 +64,7 @@ class OpenAIProvider(AIProvider):
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a League of Legends coach. Optimize team composition based on player strengths."},
+                    {"role": "system", "content": "You are a League of Legends team strategist."},
                     {"role": "user", "content": prompt}
                 ]
             )
