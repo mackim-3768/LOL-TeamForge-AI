@@ -27,11 +27,17 @@ class OpenAIProvider(AIProvider):
         self.api_key = api_key
 
     def analyze_summoner_performance(self, summoner_name: str, role_stats: List[Dict]) -> str:
-        prompt = f"Analyze the performance of summoner {summoner_name} based on the following stats:\n{role_stats}\nProvide insights on strengths and weaknesses."
+        # Construct Prompt
+        prompt = f"Analyze the performance of summoner {summoner_name} based on the following stats:\n"
+        for stat in role_stats:
+            prompt += f"Role: {stat['role']}, Win Rate: {stat['win_rate']}%, KDA: {stat['kda']}, Gold/Min: {stat['avg_gold']}, Vision Score: {stat['vision_score']}\n"
+        prompt += "\nProvide a brief summary of their strengths and weaknesses."
+
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
+                    {"role": "system", "content": "You are a League of Legends analyst. Provide concise and insightful analysis."},
                     {"role": "system", "content": "You are a League of Legends coach assistant."},
                     {"role": "user", "content": prompt}
                 ]
@@ -41,11 +47,23 @@ class OpenAIProvider(AIProvider):
             return f"Error calling OpenAI: {str(e)}"
 
     def recommend_team_composition(self, summoners: List[str], summoner_stats: Dict[str, List[Dict]]) -> str:
-        prompt = f"Given the following summoners and their stats, recommend the best team composition (assign roles):\nSummoners: {summoners}\nStats: {summoner_stats}"
+        # Construct Context
+        prompt = "Recommend the best team composition (lane assignments) for the following summoners based on their stats:\n\n"
+        for name, stats in summoner_stats.items():
+            prompt += f"Summoner: {name}\n"
+            if not stats:
+                prompt += "  No stats available.\n"
+            for stat in stats:
+                prompt += f"  Role: {stat['role']}, Score: {stat['score']}, Win Rate: {stat['win_rate']}%\n"
+            prompt += "\n"
+
+        prompt += "Assign each summoner to one unique role (TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY) to maximize the team's winning chance. Explain why."
+
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
+                    {"role": "system", "content": "You are a League of Legends coach. Optimize team composition based on player strengths."},
                     {"role": "system", "content": "You are a League of Legends team strategist."},
                     {"role": "user", "content": prompt}
                 ]
