@@ -6,6 +6,7 @@ from backend.shared.database import get_db, Summoner, MatchPerformance
 from backend.collector.collector_service import CollectorService
 from backend.collector.config import Config
 from backend.core_api.ai_module import get_ai_provider, AIProvider
+from backend.tasks import collect_summoner_data
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -80,6 +81,9 @@ def register_summoner(
     if not new_summoner:
         raise HTTPException(status_code=404, detail="Summoner not found on Riot API")
     
+    # Push collection task to the queue
+    collect_summoner_data.delay(new_summoner.id)
+
     return SummonerResponse(id=new_summoner.id, name=new_summoner.summoner_name, level=new_summoner.summoner_level)
 
 @app.get("/summoners/", response_model=List[SummonerResponse])
