@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
-import os
-import openai
+from openai import OpenAI
+from backend.collector.config import Config
 
 class AIProvider(ABC):
     @abstractmethod
@@ -23,7 +23,7 @@ class MockAIProvider(AIProvider):
 
 class OpenAIProvider(AIProvider):
     def __init__(self, api_key: str):
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key)
         self.api_key = api_key
 
     def analyze_summoner_performance(self, summoner_name: str, role_stats: List[Dict]) -> str:
@@ -33,7 +33,6 @@ class OpenAIProvider(AIProvider):
             prompt += f"Role: {stat['role']}, Win Rate: {stat['win_rate']}%, KDA: {stat['kda']}, Gold/Min: {stat['avg_gold']}, Vision Score: {stat['vision_score']}\n"
         prompt += "\nProvide a brief summary of their strengths and weaknesses."
 
-        # call openai
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o",
@@ -59,7 +58,6 @@ class OpenAIProvider(AIProvider):
 
         prompt += "Assign each summoner to one unique role (TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY) to maximize the team's winning chance. Explain why."
 
-        # call openai
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o",
@@ -73,7 +71,6 @@ class OpenAIProvider(AIProvider):
             return f"Error calling OpenAI: {str(e)}"
 
 def get_ai_provider():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        return OpenAIProvider(api_key)
+    if Config.OPENAI_API_KEY:
+        return OpenAIProvider(Config.OPENAI_API_KEY)
     return MockAIProvider()
