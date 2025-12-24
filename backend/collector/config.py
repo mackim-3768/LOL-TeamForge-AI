@@ -8,7 +8,13 @@ class Config:
     ROUTING_VALUE = "asia" # for match-v5
     PLATFORM_ROUTING_VALUE = "kr" # for summoner-v4
     
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
     # Update key at runtime
     @classmethod
     def update_api_key(cls, new_key):
         cls.RIOT_API_KEY = new_key
+
+    @classmethod
+    def update_openai_key(cls, new_key):
+        cls.OPENAI_API_KEY = new_key

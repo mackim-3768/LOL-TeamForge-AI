@@ -27,6 +27,15 @@ app.add_middleware(
 def get_collector_service():
     return CollectorService()
 
+# --- Constants ---
+ROLE_MAPPINGS = {
+    "TOP": ["TOP"],
+    "JUNGLE": ["JUNGLE"],
+    "MIDDLE": ["MIDDLE", "MID"],
+    "BOTTOM": ["BOTTOM", "BOT", "ADC"],
+    "UTILITY": ["UTILITY", "SUPPORT"]
+}
+
 # --- Pydantic Models ---
 class SummonerCreate(BaseModel):
     name: str
@@ -100,10 +109,11 @@ def get_summoner_scores(name: str, db: Session = Depends(get_db)):
     roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] # Standardizing
     
     for role in roles:
-        # Filter matches for this role
+        # Filter matches for this role using fuzzy matching/strict mapping
+        possible_lanes = ROLE_MAPPINGS.get(role, [role])
         matches = db.query(MatchPerformance).filter(
             MatchPerformance.summoner_id == summoner.id,
-            MatchPerformance.lane == role # This might need fuzzy matching or strict mapping
+            MatchPerformance.lane.in_(possible_lanes)
         ).all()
         
         if not matches:

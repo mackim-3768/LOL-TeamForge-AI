@@ -27,5 +27,6 @@ export const api = {
   registerSummoner: (name: string) => axios.post<Summoner>(`${API_URL}/summoners/`, { name }),
   getScores: (name: string) => axios.get<ScoreResponse[]>(`${API_URL}/summoners/${name}/scores`),
   getAnalysis: (name: string) => axios.get<AnalysisResponse>(`${API_URL}/analysis/summoner/${name}`),
-  recommendComp: (names: string[]) => axios.post<AnalysisResponse>(`${API_URL}/analysis/recommend-comp`, { summoner_names: names })
+  recommendComp: (names: string[]) => axios.post<AnalysisResponse>(`${API_URL}/analysis/recommend-comp`, { summoner_names: names }),
+  updateRiotKey: (key: string) => axios.put(`${API_URL}/admin/config/riot-key`, { riot_api_key: key })
 };

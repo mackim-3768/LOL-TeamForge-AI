@@ -31,8 +31,7 @@ const SummonerRegistration: React.FC = () => {
       setNewName('');
       loadSummoners();
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _ = err;
+      console.error(err);
       setError('Failed to register (Likely not found or invalid key)');
     } finally {
       setLoading(false);
