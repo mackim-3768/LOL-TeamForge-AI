@@ -9,6 +9,8 @@ import Admin from './pages/Admin';
 import FetchData from './pages/FetchData';
 
 function App() {
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+
   return (
     <Router>
       <CssBaseline />
