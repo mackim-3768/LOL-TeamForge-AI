@@ -1,33 +1,32 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Container } from '@mui/material';
-import { useState } from 'react';
-import SummonerList from './pages/SummonerList';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Box, CssBaseline } from '@mui/material';
+import NavBar from './components/NavBar';
+import Home from './pages/Home';
+import SummonerRegistration from './pages/SummonerRegistration';
 import SummonerDetail from './pages/SummonerDetail';
 import TeamBuilder from './pages/TeamBuilder';
-import AdminKeyModal from './components/AdminKeyModal';
+import Admin from './pages/Admin';
+import FetchData from './pages/FetchData';
 
 function App() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   return (
     <Router>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" style={{ flexGrow: 1 }}>
-            LoL Flex Analyst
-          </Typography>
-          <Button color="inherit" component={Link} to="/">Summoners</Button>
-          <Button color="inherit" component={Link} to="/team-builder">Team Builder</Button>
-          <Button color="inherit" onClick={() => setIsAdminModalOpen(true)}>Admin</Button>
-        </Toolbar>
-      </AppBar>
-      <AdminKeyModal open={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
-      <Routes>
-        <Route path="/" element={<SummonerList />} />
-        <Route path="/summoner/:name" element={<SummonerDetail />} />
-        <Route path="/team-builder" element={<TeamBuilder />} />
-      </Routes>
+      <CssBaseline />
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
+        <NavBar />
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/register" element={<SummonerRegistration />} />
+            <Route path="/summoner/:name" element={<SummonerDetail />} />
+            <Route path="/team-builder" element={<TeamBuilder />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/fetch" element={<FetchData />} />
+          </Routes>
+        </Box>
+      </Box>
     </Router>
   );
 }
