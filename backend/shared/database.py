@@ -4,9 +4,9 @@ from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
 
-# Use SQLite for development, but structured for easy switch to MariaDB
-# DB_URL = "mysql+pymysql://user:password@localhost/dbname"
-DB_URL = os.getenv("DB_URL", "sqlite:///./dev.db")
+# Default to MariaDB for development; can be overridden via DB_URL env var
+# Example: DB_URL="mysql+pymysql://lol_user:lol_pass@localhost:3306/lol_flex_analyst"
+DB_URL = os.getenv("DB_URL", "mysql+pymysql://lol_user:lol_pass@localhost:3306/lol_flex_analyst")
 
 engine = create_engine(DB_URL, connect_args={"check_same_thread": False} if "sqlite" in DB_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
