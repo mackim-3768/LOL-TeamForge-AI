@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Container } from '@mui/material';
 import { useState } from 'react';
-import SummonerList from './pages/SummonerList';
+import Home from './pages/Home';
 import SummonerDetail from './pages/SummonerDetail';
 import TeamBuilder from './pages/TeamBuilder';
 import AdminKeyModal from './components/AdminKeyModal';
@@ -24,7 +24,7 @@ function App() {
       </AppBar>
       <AdminKeyModal open={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
       <Routes>
-        <Route path="/" element={<SummonerList />} />
+        <Route path="/" element={<Home />} />
         <Route path="/summoner/:name" element={<SummonerDetail />} />
         <Route path="/team-builder" element={<TeamBuilder />} />
       </Routes>
