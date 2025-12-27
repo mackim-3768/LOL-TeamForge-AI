@@ -19,6 +19,22 @@ class RiotAPIClient:
             return response.json()
         return None
 
+    def get_account_by_riot_id(self, game_name, tag_line):
+        self._update_headers()
+        url = f"https://{Config.ROUTING_VALUE}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}"
+        response = requests.get(url, headers=self.headers)
+        if response.status_code == 200:
+            return response.json()
+        return None
+
+    def get_summoner_by_puuid(self, puuid):
+        self._update_headers()
+        url = f"https://{Config.PLATFORM_ROUTING_VALUE}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}"
+        response = requests.get(url, headers=self.headers)
+        if response.status_code == 200:
+            return response.json()
+        return None
+
     def get_match_ids(self, puuid, count=20):
         self._update_headers()
         # queue=440 is Flex Rank

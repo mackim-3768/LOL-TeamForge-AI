@@ -61,21 +61,64 @@ class CollectorService:
         # Logic: Check Riot, get info, save to DB
         session = SessionLocal()
         try:
-            existing = session.query(Summoner).filter_by(summoner_name=name).first()
-            if existing:
-                return existing
+            summoner_data = None
+            base_name = name
 
-            summoner_data = self.riot_client.get_summoner_by_name(name)
+            if "#" in name:
+                game_name, tag_line = name.split("#", 1)
+                game_name = game_name.strip()
+                tag_line = tag_line.strip()
+                base_name = game_name
+
+                existing = session.query(Summoner).filter_by(summoner_name=game_name).first()
+                if existing:
+                    return existing
+
+                account_data = self.riot_client.get_account_by_riot_id(game_name, tag_line)
+                if not account_data:
+                    return None
+
+                puuid = account_data.get("puuid")
+                if not puuid:
+                    return None
+
+                summoner_data = self.riot_client.get_summoner_by_puuid(puuid)
+            else:
+                existing = session.query(Summoner).filter_by(summoner_name=name).first()
+                if existing:
+                    return existing
+
+                summoner_data = self.riot_client.get_summoner_by_name(name)
+
             if not summoner_data:
                 return None
             
+            puuid = summoner_data.get('puuid')
+            summoner_name = summoner_data.get('name') or summoner_data.get('gameName') or base_name
+            summoner_id = summoner_data.get('id') or summoner_data.get('summonerId')
+            account_id = summoner_data.get('accountId')
+            profile_icon_id = summoner_data.get('profileIconId')
+            summoner_level = summoner_data.get('summonerLevel', 0)
+
+            if not puuid:
+                logger.error(f"Invalid summoner data from Riot API (missing puuid): {summoner_data}")
+                return None
+
+            existing = session.query(Summoner).filter_by(puuid=puuid).first()
+            if existing:
+                return existing
+
+            existing = session.query(Summoner).filter_by(summoner_name=summoner_name).first()
+            if existing:
+                return existing
+
             new_summoner = Summoner(
-                summoner_name=summoner_data['name'],
-                puuid=summoner_data['puuid'],
-                summoner_id=summoner_data['id'],
-                account_id=summoner_data['accountId'],
-                profile_icon_id=summoner_data['profileIconId'],
-                summoner_level=summoner_data['summonerLevel']
+                summoner_name=summoner_name,
+                puuid=puuid,
+                summoner_id=summoner_id,
+                account_id=account_id,
+                profile_icon_id=profile_icon_id,
+                summoner_level=summoner_level
             )
             session.add(new_summoner)
             session.commit()
