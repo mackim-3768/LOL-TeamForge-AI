@@ -35,13 +35,13 @@ class RiotAPIClient:
             return response.json()
         return None
 
-    def get_match_ids(self, puuid, count=20):
+    def get_match_ids(self, puuid, start=0, count=20):
         self._update_headers()
         # queue=440 is Flex Rank
         url = f"https://{Config.ROUTING_VALUE}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
         params = {
             "queue": Config.QUEUE_ID,
-            "start": 0,
+            "start": start,
             "count": count
         }
         response = requests.get(url, headers=self.headers, params=params)

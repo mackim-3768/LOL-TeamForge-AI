@@ -36,25 +36,36 @@ class CollectorService:
 
     def update_summoner_data(self, session: Session, summoner: Summoner):
         logger.info(f"Updating data for {summoner.summoner_name}...")
-        match_ids = self.riot_client.get_match_ids(summoner.puuid)
-        
-        for match_id in match_ids:
-            # Check if match already exists
-            exists = session.query(MatchPerformance).filter_by(match_id=match_id, summoner_id=summoner.id).first()
-            if exists:
-                continue
-            
-            match_details = self.riot_client.get_match_details(match_id)
-            if not match_details:
-                continue
+        page_size = 50
+        start = 0
 
-            performance_data = DataProcessor.extract_performance(match_details, summoner.puuid)
-            if performance_data:
-                performance = MatchPerformance(**performance_data)
-                performance.summoner_id = summoner.id
-                session.add(performance)
-                session.commit()
-                logger.info(f"Saved match {match_id} for {summoner.summoner_name}")
+        while True:
+            match_ids = self.riot_client.get_match_ids(summoner.puuid, start=start, count=page_size)
+            if not match_ids:
+                break
+
+            for match_id in match_ids:
+                # Check if match already exists
+                exists = session.query(MatchPerformance).filter_by(match_id=match_id, summoner_id=summoner.id).first()
+                if exists:
+                    continue
+                
+                match_details = self.riot_client.get_match_details(match_id)
+                if not match_details:
+                    continue
+
+                performance_data = DataProcessor.extract_performance(match_details, summoner.puuid)
+                if performance_data:
+                    performance = MatchPerformance(**performance_data)
+                    performance.summoner_id = summoner.id
+                    session.add(performance)
+                    session.commit()
+                    logger.info(f"Saved match {match_id} for {summoner.summoner_name}")
+
+            if len(match_ids) < page_size:
+                break
+
+            start += page_size
                 
     def add_summoner(self, name: str):
         # This might be called by the API service, or we just rely on DB shared state
