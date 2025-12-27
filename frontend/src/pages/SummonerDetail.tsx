@@ -40,7 +40,7 @@ const SummonerDetail: React.FC = () => {
       <Typography variant="h5" gutterBottom>Role Performance (Score 0-100)</Typography>
       <Grid container spacing={2}>
         {scores.map((s) => (
-          <Grid item xs={12} sm={6} md={4} key={s.role}>
+          <Grid key={s.role} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card style={{ backgroundColor: '#f5f5f5' }}>
               <CardContent>
                 <Typography variant="h6">{s.role}</Typography>

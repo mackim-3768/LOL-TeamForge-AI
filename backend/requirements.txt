@@ -5,3 +5,6 @@ requests
 apscheduler
 pydantic
 python-dotenv
+celery
+redis
+openai
