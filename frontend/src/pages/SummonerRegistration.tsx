@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import type { Summoner } from '../api';
 import { Container, Typography, TextField, Button, List, ListItem, ListItemText, Paper } from '@mui/material';
@@ -8,6 +9,7 @@ const SummonerRegistration: React.FC = () => {
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadSummoners();
@@ -58,7 +60,18 @@ const SummonerRegistration: React.FC = () => {
       <Paper>
         <List>
           {summoners.map((s) => (
-            <ListItem key={s.id} component="a" href={`/summoner/${s.name}`}>
+            <ListItem
+              key={s.id}
+              secondaryAction={
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => navigate(`/summoner/${s.name}`)}
+                >
+                  View Detail
+                </Button>
+              }
+            >
               <ListItemText primary={s.name} secondary={`Level: ${s.level}`} />
             </ListItem>
           ))}
