@@ -1,4 +1,4 @@
-# Daily Idea Log: 2025-W10-day2
+# Daily Idea Log: 2025-W10-day3
 
 ## 1. Discovery (Ideas)
 
@@ -64,7 +64,7 @@
 ## 4. Backlog Draft
 
 ### GitHub Issue Title
-`[Daily][2025-W10-day2] Implement Expandable Match Detail View`
+`[Daily][2025-W10-day3] Implement Expandable Match Detail View`
 
 ### Task Breakdown
 1. **[Frontend]** `MatchListItem` 컴포넌트를 Accordion 형태로 리팩토링 (state 관리 추가).
