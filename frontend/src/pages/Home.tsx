@@ -24,7 +24,8 @@ const Home: React.FC = () => {
     <Box
       sx={{
         backgroundColor: '#5383E8',
-        minHeight: '60vh',
+        minHeight: 'calc(100vh - 64px)',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
