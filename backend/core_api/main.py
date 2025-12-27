@@ -91,7 +91,11 @@ def register_summoner(
         raise HTTPException(status_code=404, detail="Summoner not found on Riot API")
     
     # Push collection task to the queue
-    collect_summoner_data.delay(new_summoner.id)
+    try:
+        collect_summoner_data.delay(new_summoner.id)
+    except Exception as e:
+        logger.error(f"Failed to enqueue background collection task: {e}. Falling back to synchronous collection.")
+        collector.update_summoner_data(db, new_summoner)
 
     return SummonerResponse(id=new_summoner.id, name=new_summoner.summoner_name, level=new_summoner.summoner_level)
 
