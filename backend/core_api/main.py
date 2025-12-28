@@ -241,6 +241,21 @@ def _compute_role_scores_for_summoner(
     return scores
 
 
+def _volume_weight(games: int, target_games: int) -> float:
+    """Return a weight 0~1 that penalizes low game counts.
+
+    - 0 games: 0
+    - few games: ~0.3~0.5
+    - target_games 이상: 1.0
+    """
+    if games <= 0 or target_games <= 0:
+        return 0.0
+
+    ratio = min(1.0, games / float(target_games))
+    base = 0.3  # 최소 신뢰도
+    return base + (1.0 - base) * ratio
+
+
 @app.get("/summoners/{name}/scores", response_model=List[ScoreResponse])
 def get_summoner_scores(name: str, db: Session = Depends(get_db)):
     """Calculates 0-100 score for each role based on stored match data (all-time)."""
@@ -288,12 +303,16 @@ def get_leaderboard(timeframe: str = "daily", db: Session = Depends(get_db)):
     now = datetime.utcnow()
     if timeframe == "daily":
         since = now - timedelta(days=1)
+        target_games = 5
     elif timeframe == "weekly":
         since = now - timedelta(days=7)
+        target_games = 10
     elif timeframe == "monthly":
         since = now - timedelta(days=30)
+        target_games = 20
     else:  # yearly
         since = now - timedelta(days=365)
+        target_games = 50
 
     summoners = db.query(Summoner).all()
     entries: List[LeaderboardEntry] = []
@@ -305,28 +324,34 @@ def get_leaderboard(timeframe: str = "daily", db: Session = Depends(get_db)):
 
         best = max(scores, key=lambda s: s.score)
 
+        # Count games only for the best role within timeframe
+        possible_lanes = ROLE_MAPPINGS.get(best.role, [best.role])
         games = (
             db.query(MatchPerformance)
             .filter(
                 MatchPerformance.summoner_id == summoner.id,
                 MatchPerformance.game_creation >= since,
+                MatchPerformance.lane.in_(possible_lanes),
             )
             .count()
         )
         if games == 0:
             continue
 
+        weight = _volume_weight(games, target_games)
+        adjusted_score = round(best.score * weight, 1)
+
         entries.append(
             LeaderboardEntry(
                 name=summoner.summoner_name,
                 level=summoner.summoner_level,
                 best_role=best.role,
-                best_score=best.score,
+                best_score=adjusted_score,
                 games=games,
             )
         )
 
-    # Sort by best_score desc, then by games desc
+    # Sort by adjusted best_score desc, then by games desc
     entries.sort(key=lambda e: (e.best_score, e.games), reverse=True)
 
     # Limit to top 50 to keep payload size manageable
