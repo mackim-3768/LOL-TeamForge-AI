@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Tabs, Tab, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { Container, Typography, Box, Paper, Tabs, Tab, Table, TableHead, TableRow, TableCell, TableBody, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import type { Summoner } from '../api';
 
 const Home: React.FC = () => {
   const [summoners, setSummoners] = useState<Summoner[]>([]);
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Prefetch summoners for autocomplete
@@ -55,6 +57,7 @@ const Home: React.FC = () => {
                 <TableCell align="center">Rank</TableCell>
                 <TableCell>Summoner</TableCell>
                 <TableCell align="right">Level</TableCell>
+                <TableCell align="center">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -63,6 +66,15 @@ const Home: React.FC = () => {
                   <TableCell align="center">{index + 1}</TableCell>
                   <TableCell>{s.name}</TableCell>
                   <TableCell align="right">{s.level}</TableCell>
+                  <TableCell align="center">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => navigate(`/summoner/${s.name}`)}
+                    >
+                      View Detail
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
