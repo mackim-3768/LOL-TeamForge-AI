@@ -4,6 +4,7 @@ import { api } from '../api';
 import type { ScoreResponse, MatchPerformance, MatchDetailResponse } from '../api';
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { DDRAGON_BASE, COLOR_BLUE_TEAM, COLOR_RED_TEAM, CHAMPION_ICON_SIZE, ITEM_ICON_SIZE, RUNE_ICON_SIZE } from '../config';
+import RoleRadarChart from '../components/RoleRadarChart';
 
 const getChampionIconUrl = (championName: string) =>
   `${DDRAGON_BASE}/img/champion/${championName}.png`;
@@ -102,6 +103,9 @@ const SummonerDetail: React.FC = () => {
       <Typography variant="h3" gutterBottom>{name}</Typography>
       
       <Typography variant="h5" gutterBottom>Role Performance (Score 0-100)</Typography>
+      <Box sx={{ width: '100%', height: 300, mb: 2 }}>
+        <RoleRadarChart scores={scores} />
+      </Box>
       <Grid container spacing={2}>
         {scores.map((s) => (
           <Grid key={s.role} size={{ xs: 12, sm: 6, md: 4 }}>
