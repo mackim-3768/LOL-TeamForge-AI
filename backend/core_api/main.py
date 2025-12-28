@@ -322,32 +322,40 @@ def get_leaderboard(timeframe: str = "daily", db: Session = Depends(get_db)):
         if not scores:
             continue
 
-        best = max(scores, key=lambda s: s.score)
-
-        # Count games only for the best role within timeframe
-        possible_lanes = ROLE_MAPPINGS.get(best.role, [best.role])
-        games = (
-            db.query(MatchPerformance)
-            .filter(
-                MatchPerformance.summoner_id == summoner.id,
-                MatchPerformance.game_creation >= since,
-                MatchPerformance.lane.in_(possible_lanes),
+        role_candidates = []
+        for s in scores:
+            possible_lanes = ROLE_MAPPINGS.get(s.role, [s.role])
+            games = (
+                db.query(MatchPerformance)
+                .filter(
+                    MatchPerformance.summoner_id == summoner.id,
+                    MatchPerformance.game_creation >= since,
+                    MatchPerformance.lane.in_(possible_lanes),
+                )
+                .count()
             )
-            .count()
-        )
-        if games == 0:
+            if games == 0:
+                continue
+
+            weight = _volume_weight(games, target_games)
+            effective_score = round(s.score * weight, 1)
+            role_candidates.append((s.role, effective_score, games))
+
+        if not role_candidates:
             continue
 
-        weight = _volume_weight(games, target_games)
-        adjusted_score = round(best.score * weight, 1)
+        # Select best role using volume-weighted (effective) score
+        best_role, best_effective_score, best_games = max(
+            role_candidates, key=lambda x: x[1]
+        )
 
         entries.append(
             LeaderboardEntry(
                 name=summoner.summoner_name,
                 level=summoner.summoner_level,
-                best_role=best.role,
-                best_score=adjusted_score,
-                games=games,
+                best_role=best_role,
+                best_score=best_effective_score,
+                games=best_games,
             )
         )
 
