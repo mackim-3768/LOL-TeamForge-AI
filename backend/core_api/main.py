@@ -2,10 +2,11 @@ from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from backend.shared.database import get_db, Summoner, MatchPerformance, MatchDetail
+from backend.shared.database import get_db, Summoner, MatchPerformance, MatchDetail, SummonerPlaystyleTag
 from backend.collector.collector_service import CollectorService
 from backend.collector.config import Config
 from backend.core_api.ai_module import get_ai_provider, AIProvider
+from backend.core_api.playstyle_tags import upsert_playstyle_snapshot, TAG_VERSION
 from backend.tasks import collect_summoner_data
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -128,6 +129,19 @@ class MatchDetailResponse(BaseModel):
     red_total_kills: int
     blue_total_gold: int
     red_total_gold: int
+
+
+class PlaystyleTagItem(BaseModel):
+    id: str
+    label_ko: str
+
+
+class PlaystyleTagSnapshotResponse(BaseModel):
+    tags: List[PlaystyleTagItem]
+    primary_role: Optional[str]
+    games_used: int
+    calculated_at: Optional[datetime]
+    version: str
 
 class LeaderboardEntry(BaseModel):
     name: str
@@ -264,6 +278,80 @@ def get_summoner_scores(name: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Summoner not found")
 
     return _compute_role_scores_for_summoner(summoner, db)
+
+
+@app.get("/summoners/{name}/playstyle-tags", response_model=PlaystyleTagSnapshotResponse)
+def get_playstyle_tags(name: str, db: Session = Depends(get_db)):
+    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
+    if not summoner:
+        raise HTTPException(status_code=404, detail="Summoner not found")
+
+    snapshot = (
+        db.query(SummonerPlaystyleTag)
+        .filter(SummonerPlaystyleTag.summoner_id == summoner.id)
+        .first()
+    )
+
+    if not snapshot:
+        return PlaystyleTagSnapshotResponse(
+            tags=[],
+            primary_role=None,
+            games_used=0,
+            calculated_at=None,
+            version=TAG_VERSION,
+        )
+
+    raw_tags = snapshot.tags or []
+    items: List[PlaystyleTagItem] = []
+    for tag in raw_tags:
+        tag_id = tag.get("id")
+        if not tag_id:
+            continue
+        label = tag.get("label_ko") or tag.get("label") or ""
+        items.append(PlaystyleTagItem(id=tag_id, label_ko=label))
+
+    return PlaystyleTagSnapshotResponse(
+        tags=items,
+        primary_role=snapshot.primary_role,
+        games_used=snapshot.games_used or 0,
+        calculated_at=snapshot.calculated_at,
+        version=snapshot.version or TAG_VERSION,
+    )
+
+
+@app.post("/summoners/{name}/playstyle-tags/recalculate", response_model=PlaystyleTagSnapshotResponse)
+def recalc_playstyle_tags(
+    name: str,
+    no_refresh: bool = False,
+    db: Session = Depends(get_db),
+    collector: CollectorService = Depends(get_collector_service),
+):
+    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
+    if not summoner:
+        raise HTTPException(status_code=404, detail="Summoner not found")
+
+    if not no_refresh:
+        try:
+            collector.update_summoner_data_incremental(db, summoner)
+        except Exception as e:
+            logger.error(f"Failed to update summoner data for playstyle tags: {e}")
+
+    snapshot, tags, primary_role, total_games = upsert_playstyle_snapshot(db, summoner)
+
+    items: List[PlaystyleTagItem] = []
+    for tag in tags:
+        tag_id = tag.get("id")
+        if not tag_id:
+            continue
+        items.append(PlaystyleTagItem(id=tag_id, label_ko=tag.get("label_ko", "")))
+
+    return PlaystyleTagSnapshotResponse(
+        tags=items,
+        primary_role=primary_role,
+        games_used=total_games,
+        calculated_at=snapshot.calculated_at,
+        version=snapshot.version,
+    )
 
 @app.get("/summoners/{name}/matches", response_model=MatchListResponse)
 def get_summoner_matches(

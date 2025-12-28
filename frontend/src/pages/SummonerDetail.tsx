@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
-import type { ScoreResponse, MatchPerformance, MatchDetailResponse } from '../api';
+import type { ScoreResponse, MatchPerformance, MatchDetailResponse, PlaystyleTagSnapshot } from '../api';
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { DDRAGON_BASE, COLOR_BLUE_TEAM, COLOR_RED_TEAM, CHAMPION_ICON_SIZE, ITEM_ICON_SIZE, RUNE_ICON_SIZE } from '../config';
 import RoleRadarChart from '../components/RoleRadarChart';
@@ -29,6 +29,11 @@ const SummonerDetail: React.FC = () => {
   const [matchDetailLoading, setMatchDetailLoading] = useState(false);
   const [matchDetailError, setMatchDetailError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [playstyleSnapshot, setPlaystyleSnapshot] = useState<PlaystyleTagSnapshot | null>(null);
+  const [playstyleLoading, setPlaystyleLoading] = useState(false);
+  const [playstyleRecalcLoading, setPlaystyleRecalcLoading] = useState(false);
+  const [playstyleRefreshLoading, setPlaystyleRefreshLoading] = useState(false);
+  const [playstyleError, setPlaystyleError] = useState<string | null>(null);
   const PAGE_SIZE = 20;
 
   useEffect(() => {
@@ -36,6 +41,20 @@ const SummonerDetail: React.FC = () => {
       fetchData(name);
     }
   }, [name]);
+
+  const loadPlaystyleTags = async (summonerName: string) => {
+    setPlaystyleLoading(true);
+    setPlaystyleError(null);
+    try {
+      const res = await api.getPlaystyleTags(summonerName);
+      setPlaystyleSnapshot(res.data);
+    } catch (err) {
+      console.error(err);
+      setPlaystyleError('플레이 스타일 태그를 불러오지 못했습니다.');
+    } finally {
+      setPlaystyleLoading(false);
+    }
+  };
 
   const fetchData = async (summonerName: string) => {
     try {
@@ -49,10 +68,43 @@ const SummonerDetail: React.FC = () => {
       setMatches(matchesRes.data.matches);
       setHasMoreMatches(matchesRes.data.has_more);
       setMatchesOffset(matchesRes.data.matches.length);
+      await loadPlaystyleTags(summonerName);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const recalcPlaystyleTagsOnly = async () => {
+    if (!name || playstyleRecalcLoading || playstyleRefreshLoading) return;
+
+    setPlaystyleRecalcLoading(true);
+    setPlaystyleError(null);
+    try {
+      const res = await api.recalcPlaystyleTags(name, { noRefresh: true });
+      setPlaystyleSnapshot(res.data);
+    } catch (err) {
+      console.error(err);
+      setPlaystyleError('플레이 스타일 태그 재계산에 실패했습니다.');
+    } finally {
+      setPlaystyleRecalcLoading(false);
+    }
+  };
+
+  const refreshMatchesAndTags = async () => {
+    if (!name || playstyleRefreshLoading || playstyleRecalcLoading) return;
+
+    setPlaystyleRefreshLoading(true);
+    setPlaystyleError(null);
+    try {
+      await api.recalcPlaystyleTags(name);
+      await fetchData(name);
+    } catch (err) {
+      console.error(err);
+      setPlaystyleError('매치데이터 업데이트에 실패했습니다.');
+    } finally {
+      setPlaystyleRefreshLoading(false);
     }
   };
 
@@ -105,6 +157,66 @@ const SummonerDetail: React.FC = () => {
       <Typography variant="h5" gutterBottom>Role Performance (Score 0-100)</Typography>
       <Box sx={{ width: '100%', height: 300, mb: 2 }}>
         <RoleRadarChart scores={scores} />
+      </Box>
+      <Box sx={{ mb: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="h6">플레이 스타일 태그</Typography>
+          <Box display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={recalcPlaystyleTagsOnly}
+              disabled={playstyleRecalcLoading || playstyleRefreshLoading}
+            >
+              {playstyleRecalcLoading ? '태그 계산 중...' : '태그만 업데이트'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={refreshMatchesAndTags}
+              disabled={playstyleRefreshLoading || playstyleRecalcLoading}
+            >
+              {playstyleRefreshLoading ? '매치 갱신 중...' : '매치데이터 업데이트'}
+            </Button>
+          </Box>
+        </Box>
+        {playstyleLoading ? (
+          <CircularProgress size={20} />
+        ) : playstyleError ? (
+          <Typography variant="body2" color="error">
+            {playstyleError}
+          </Typography>
+        ) : playstyleSnapshot && playstyleSnapshot.tags.length > 0 ? (
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {playstyleSnapshot.tags.map((t) => (
+              <Box
+                className=''
+                key={t.id}
+                sx={{
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 2,
+                  bgcolor: '#e3f2fd',
+                  fontSize: 12,
+                }}
+              >
+                {t.label_ko}
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="textSecondary">
+            아직 플레이 스타일 분석이 없습니다.
+          </Typography>
+        )}
+        {playstyleSnapshot && playstyleSnapshot.games_used > 0 && (
+          <Typography variant="caption" color="textSecondary">
+            최근 {playstyleSnapshot.games_used}게임 기준
+            {playstyleSnapshot.calculated_at
+              ? ` · ${new Date(playstyleSnapshot.calculated_at).toLocaleString()} 기준`
+              : ''}
+          </Typography>
+        )}
       </Box>
       <Grid container spacing={2}>
         {scores.map((s) => (

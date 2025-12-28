@@ -94,6 +94,84 @@ class CollectorService:
                 break
 
             start += page_size
+
+    def update_summoner_data_incremental(self, session: Session, summoner: Summoner):
+        logger.info(f"Incremental update for {summoner.summoner_name}...")
+        latest_match = (
+            session.query(MatchPerformance)
+            .filter(MatchPerformance.summoner_id == summoner.id)
+            .order_by(MatchPerformance.game_creation.desc())
+            .first()
+        )
+
+        if latest_match is None:
+            logger.info("No existing matches found, falling back to full update.")
+            self.update_summoner_data(session, summoner)
+            return
+
+        start_time = int(latest_match.game_creation.timestamp()) + 1
+
+        page_size = 50
+        start = 0
+
+        while True:
+            match_ids = self.riot_client.get_match_ids(
+                summoner.puuid,
+                start=start,
+                count=page_size,
+                start_time=start_time,
+            )
+            if not match_ids:
+                logger.info("No newer matches returned for incremental update.")
+                break
+
+            logger.info(f"Processing {len(match_ids)} incremental matches for {summoner.summoner_name} (start={start})")
+            page_saved = 0
+
+            for match_id in match_ids:
+                match_details = self.riot_client.get_match_details(match_id)
+                if not match_details:
+                    continue
+
+                existing_match = session.query(MatchDetail).filter_by(match_id=match_id).first()
+                if not existing_match:
+                    raw_entry = MatchDetail(match_id=match_id, raw=match_details)
+                    session.add(raw_entry)
+                    session.commit()
+
+                info = match_details.get("info", {})
+                participants = info.get("participants", [])
+                if not participants:
+                    continue
+
+                puuids_in_match = [p.get("puuid") for p in participants if p.get("puuid")]
+                if not puuids_in_match:
+                    continue
+
+                related_summoners = session.query(Summoner).filter(Summoner.puuid.in_(puuids_in_match)).all()
+                for related_summoner in related_summoners:
+                    exists = session.query(MatchPerformance).filter_by(
+                        match_id=match_id,
+                        summoner_id=related_summoner.id
+                    ).first()
+                    if exists:
+                        continue
+
+                    performance_data = DataProcessor.extract_performance(match_details, related_summoner.puuid)
+                    if performance_data:
+                        performance = MatchPerformance(**performance_data)
+                        performance.summoner_id = related_summoner.id
+                        session.add(performance)
+                        session.commit()
+                        logger.info(f"Saved match {match_id} for {related_summoner.summoner_name} (incremental)")
+                        page_saved += 1
+
+            logger.info(f"Incremental page completed for {summoner.summoner_name}: start={start}, total={len(match_ids)}, saved={page_saved}")
+
+            if len(match_ids) < page_size:
+                break
+
+            start += page_size
                 
     def add_summoner(self, name: str):
         # This might be called by the API service, or we just rely on DB shared state

@@ -33,6 +33,7 @@ class Summoner(Base):
     last_updated = Column(DateTime, default=datetime.utcnow)
     
     matches = relationship("MatchPerformance", back_populates="summoner")
+    playstyle_tags = relationship("SummonerPlaystyleTag", back_populates="summoner")
 
 class MatchPerformance(Base):
     __tablename__ = "match_performances"
@@ -68,6 +69,20 @@ class MatchDetail(Base):
     id = Column(Integer, primary_key=True, index=True)
     match_id = Column(String(50), unique=True, index=True)
     raw = Column(JSON)
+
+
+class SummonerPlaystyleTag(Base):
+    __tablename__ = "summoner_playstyle_tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    summoner_id = Column(Integer, ForeignKey("summoners.id"), index=True)
+    tags = Column(JSON)
+    primary_role = Column(String(20))
+    games_used = Column(Integer, default=0)
+    calculated_at = Column(DateTime, default=datetime.utcnow)
+    version = Column(String(20), default="v1")
+
+    summoner = relationship("Summoner", back_populates="playstyle_tags")
 
 def init_db():
     Base.metadata.create_all(bind=engine)

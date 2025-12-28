@@ -1,6 +1,7 @@
 import requests
 import time
 import logging
+from typing import Optional
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -38,15 +39,17 @@ class RiotAPIClient:
             return response.json()
         return None
 
-    def get_match_ids(self, puuid, start=0, count=20):
+    def get_match_ids(self, puuid, start=0, count=20, start_time: Optional[int] = None):
         self._update_headers()
         # queue=440 is Flex Rank
         url = f"https://{Config.ROUTING_VALUE}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
         params = {
             "queue": Config.QUEUE_ID,
             "start": start,
-            "count": count
+            "count": count,
         }
+        if start_time is not None:
+            params["startTime"] = start_time
         # Simple retry loop to handle rate limiting (HTTP 429)
         for attempt in range(3):
             logger.info(f"[get_match_ids] puuid={puuid[:12]}..., start={start}, count={count}, attempt={attempt+1}")

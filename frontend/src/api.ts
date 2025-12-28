@@ -18,6 +18,19 @@ export interface ScoreResponse {
   vision_score: number;
 }
 
+export interface PlaystyleTag {
+  id: string;
+  label_ko: string;
+}
+
+export interface PlaystyleTagSnapshot {
+  tags: PlaystyleTag[];
+  primary_role: string | null;
+  games_used: number;
+  calculated_at: string | null;
+  version: string;
+}
+
 export interface AnalysisResponse {
   analysis: string;
 }
@@ -101,4 +114,14 @@ export const api = {
     axios.get<MatchDetailResponse>(`${API_URL}/matches/${matchId}`),
   getLeaderboard: (timeframe: 'daily' | 'weekly' | 'monthly' | 'yearly') =>
     axios.get<LeaderboardEntry[]>(`${API_URL}/leaderboard`, { params: { timeframe } }),
+  getPlaystyleTags: (name: string) =>
+    axios.get<PlaystyleTagSnapshot>(`${API_URL}/summoners/${name}/playstyle-tags`),
+  recalcPlaystyleTags: (name: string, options?: { noRefresh?: boolean }) =>
+    axios.post<PlaystyleTagSnapshot>(
+      `${API_URL}/summoners/${name}/playstyle-tags/recalculate`,
+      null,
+      options?.noRefresh !== undefined
+        ? { params: { no_refresh: options.noRefresh } }
+        : undefined,
+    ),
 };
