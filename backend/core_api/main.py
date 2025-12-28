@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from backend.shared.database import get_db, Summoner, MatchPerformance
+from backend.shared.database import get_db, Summoner, MatchPerformance, MatchDetail
 from backend.collector.collector_service import CollectorService
 from backend.collector.config import Config
 from backend.core_api.ai_module import get_ai_provider, AIProvider
@@ -85,6 +85,29 @@ class MatchPerformanceResponse(BaseModel):
 class MatchListResponse(BaseModel):
     matches: List[MatchPerformanceResponse]
     has_more: bool
+
+class MatchDetailParticipant(BaseModel):
+    summoner_name: str
+    champion_name: str
+    team_id: int
+    lane: str
+    role: str
+    kills: int
+    deaths: int
+    assists: int
+    kda: float
+    total_damage_dealt_to_champions: int
+    total_minions_killed: int
+    gold_earned: int
+    win: bool
+
+class MatchDetailResponse(BaseModel):
+    match_id: str
+    game_creation: datetime
+    game_duration: int
+    queue_id: int
+    blue_team: List[MatchDetailParticipant]
+    red_team: List[MatchDetailParticipant]
 
 class TeamCompRequest(BaseModel):
     summoner_names: List[str]
@@ -215,6 +238,64 @@ def get_summoner_matches(
     matches = items[:limit]
 
     return MatchListResponse(matches=matches, has_more=has_more)
+
+@app.get("/matches/{match_id}", response_model=MatchDetailResponse)
+def get_match_detail(match_id: str, db: Session = Depends(get_db)):
+    db_match = db.query(MatchDetail).filter(MatchDetail.match_id == match_id).first()
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    data = db_match.raw or {}
+    info = data.get("info", {})
+    participants = info.get("participants", [])
+
+    participant_models: List[MatchDetailParticipant] = []
+    for p in participants:
+        kills = p.get("kills", 0)
+        deaths = p.get("deaths", 0)
+        assists = p.get("assists", 0)
+        kda = (kills + assists) / max(1, deaths)
+
+        lane = p.get("teamPosition") or p.get("lane") or ""
+
+        participant_models.append(
+            MatchDetailParticipant(
+                summoner_name=p.get("riotIdGameName") or p.get("summonerName") or "",
+                champion_name=p.get("championName", ""),
+                team_id=p.get("teamId", 0),
+                lane=lane,
+                role=p.get("role", ""),
+                kills=kills,
+                deaths=deaths,
+                assists=assists,
+                kda=kda,
+                total_damage_dealt_to_champions=p.get("totalDamageDealtToChampions", 0),
+                total_minions_killed=p.get("totalMinionsKilled", 0) + p.get("neutralMinionsKilled", 0),
+                gold_earned=p.get("goldEarned", 0),
+                win=p.get("win", False),
+            )
+        )
+
+    blue_team = [p for p in participant_models if p.team_id == 100]
+    red_team = [p for p in participant_models if p.team_id == 200]
+
+    raw_game_creation = info.get("gameCreation", 0)
+    try:
+        game_creation = datetime.fromtimestamp(raw_game_creation / 1000) if raw_game_creation else datetime.utcfromtimestamp(0)
+    except Exception:
+        game_creation = datetime.utcfromtimestamp(0)
+
+    game_duration = int(info.get("gameDuration", 0))
+    queue_id = int(info.get("queueId", 0))
+
+    return MatchDetailResponse(
+        match_id=match_id,
+        game_creation=game_creation,
+        game_duration=game_duration,
+        queue_id=queue_id,
+        blue_team=blue_team,
+        red_team=red_team,
+    )
 
 @app.put("/admin/config/riot-key")
 def update_riot_key(config: ConfigUpdate):

@@ -1,7 +1,7 @@
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
-from backend.shared.database import SessionLocal, Summoner, MatchPerformance, engine, Base
+from backend.shared.database import SessionLocal, Summoner, MatchPerformance, engine, Base, MatchDetail
 from .riot_client import RiotAPIClient
 from .data_processor import DataProcessor
 import logging
@@ -52,6 +52,12 @@ class CollectorService:
                 match_details = self.riot_client.get_match_details(match_id)
                 if not match_details:
                     continue
+
+                existing_match = session.query(MatchDetail).filter_by(match_id=match_id).first()
+                if not existing_match:
+                    raw_entry = MatchDetail(match_id=match_id, raw=match_details)
+                    session.add(raw_entry)
+                    session.commit()
 
                 info = match_details.get("info", {})
                 participants = info.get("participants", [])

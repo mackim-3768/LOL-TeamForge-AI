@@ -62,5 +62,12 @@ class MatchPerformance(Base):
     
     summoner = relationship("Summoner", back_populates="matches")
 
+class MatchDetail(Base):
+    __tablename__ = "match_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(String(50), unique=True, index=True)
+    raw = Column(JSON)
+
 def init_db():
     Base.metadata.create_all(bind=engine)

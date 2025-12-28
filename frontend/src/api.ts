@@ -45,6 +45,31 @@ export interface MatchListResponse {
   has_more: boolean;
 }
 
+export interface MatchDetailParticipant {
+  summoner_name: string;
+  champion_name: string;
+  team_id: number;
+  lane: string;
+  role: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kda: number;
+  total_damage_dealt_to_champions: number;
+  total_minions_killed: number;
+  gold_earned: number;
+  win: boolean;
+}
+
+export interface MatchDetailResponse {
+  match_id: string;
+  game_creation: string;
+  game_duration: number;
+  queue_id: number;
+  blue_team: MatchDetailParticipant[];
+  red_team: MatchDetailParticipant[];
+}
+
 export const api = {
   getSummoners: () => axios.get<Summoner[]>(`${API_URL}/summoners/`),
   registerSummoner: (name: string) => axios.post<Summoner>(`${API_URL}/summoners/`, { name }),
@@ -57,4 +82,6 @@ export const api = {
     axios.get<MatchListResponse>(`${API_URL}/summoners/${name}/matches`, {
       params: { offset, limit },
     }),
+  getMatchDetail: (matchId: string) =>
+    axios.get<MatchDetailResponse>(`${API_URL}/matches/${matchId}`),
 };

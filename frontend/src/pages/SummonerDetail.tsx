@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
-import type { ScoreResponse, MatchPerformance } from '../api';
-import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button } from '@mui/material';
+import type { ScoreResponse, MatchPerformance, MatchDetailResponse } from '../api';
+import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 
 const SummonerDetail: React.FC = () => {
   const { name } = useParams<{ name: string }>();
@@ -12,6 +12,11 @@ const SummonerDetail: React.FC = () => {
   const [matchesOffset, setMatchesOffset] = useState(0);
   const [hasMoreMatches, setHasMoreMatches] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [matchDetailOpen, setMatchDetailOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<MatchPerformance | null>(null);
+  const [matchDetail, setMatchDetail] = useState<MatchDetailResponse | null>(null);
+  const [matchDetailLoading, setMatchDetailLoading] = useState(false);
+  const [matchDetailError, setMatchDetailError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const PAGE_SIZE = 20;
 
@@ -56,6 +61,30 @@ const SummonerDetail: React.FC = () => {
     }
   };
 
+  const openMatchDetail = async (match: MatchPerformance) => {
+    if (matchDetailLoading) return;
+
+    setSelectedMatch(match);
+    setMatchDetailOpen(true);
+    setMatchDetail(null);
+    setMatchDetailError(null);
+    setMatchDetailLoading(true);
+
+    try {
+      const res = await api.getMatchDetail(match.match_id);
+      setMatchDetail(res.data);
+    } catch (err) {
+      console.error(err);
+      setMatchDetailError('매치 상세를 불러오지 못했습니다.');
+    } finally {
+      setMatchDetailLoading(false);
+    }
+  };
+
+  const closeMatchDetail = () => {
+    setMatchDetailOpen(false);
+  };
+
   if (loading) return <CircularProgress style={{ margin: '50px' }} />;
 
   return (
@@ -98,7 +127,8 @@ const SummonerDetail: React.FC = () => {
           {matches.map((m) => (
             <Card
               key={m.id}
-              style={{ backgroundColor: m.win ? '#e3f2fd' : '#ffebee' }}
+              style={{ backgroundColor: m.win ? '#e3f2fd' : '#ffebee', cursor: 'pointer' }}
+              onClick={() => openMatchDetail(m)}
             >
               <CardContent>
                 <Box display="flex" justifyContent="space-between" flexWrap="wrap" gap={1}>
@@ -132,6 +162,99 @@ const SummonerDetail: React.FC = () => {
           </Button>
         </Box>
       )}
+
+      <Dialog open={matchDetailOpen} onClose={closeMatchDetail} fullWidth maxWidth="lg">
+        <DialogTitle>
+          {selectedMatch
+            ? `${new Date(selectedMatch.game_creation).toLocaleString()} - ${selectedMatch.champion_name}`
+            : 'Match Detail'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {matchDetailLoading && (
+            <Box display="flex" justifyContent="center" my={2}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {matchDetailError && (
+            <Typography color="error" variant="body2" gutterBottom>
+              {matchDetailError}
+            </Typography>
+          )}
+
+          {matchDetail && (
+            <Box display="flex" flexDirection="column" gap={3}>
+              <Typography variant="subtitle2" color="textSecondary">
+                {new Date(matchDetail.game_creation).toLocaleString()} · 약 {Math.round(matchDetail.game_duration / 60)}분 · Queue {matchDetail.queue_id}
+              </Typography>
+
+              <Box>
+                <Typography variant="h6" gutterBottom>Blue Team</Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Summoner</TableCell>
+                      <TableCell>Champion</TableCell>
+                      <TableCell>Lane</TableCell>
+                      <TableCell align="right">K / D / A</TableCell>
+                      <TableCell align="right">CS</TableCell>
+                      <TableCell align="right">Damage</TableCell>
+                      <TableCell align="right">Gold</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {matchDetail.blue_team.map((p) => (
+                      <TableRow key={p.summoner_name + p.champion_name}>
+                        <TableCell>{p.summoner_name}</TableCell>
+                        <TableCell>{p.champion_name}</TableCell>
+                        <TableCell>{p.lane || p.role}</TableCell>
+                        <TableCell align="right">
+                          {p.kills} / {p.deaths} / {p.assists}
+                        </TableCell>
+                        <TableCell align="right">{p.total_minions_killed}</TableCell>
+                        <TableCell align="right">{p.total_damage_dealt_to_champions}</TableCell>
+                        <TableCell align="right">{p.gold_earned}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom>Red Team</Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Summoner</TableCell>
+                      <TableCell>Champion</TableCell>
+                      <TableCell>Lane</TableCell>
+                      <TableCell align="right">K / D / A</TableCell>
+                      <TableCell align="right">CS</TableCell>
+                      <TableCell align="right">Damage</TableCell>
+                      <TableCell align="right">Gold</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {matchDetail.red_team.map((p) => (
+                      <TableRow key={p.summoner_name + p.champion_name}>
+                        <TableCell>{p.summoner_name}</TableCell>
+                        <TableCell>{p.champion_name}</TableCell>
+                        <TableCell>{p.lane || p.role}</TableCell>
+                        <TableCell align="right">
+                          {p.kills} / {p.deaths} / {p.assists}
+                        </TableCell>
+                        <TableCell align="right">{p.total_minions_killed}</TableCell>
+                        <TableCell align="right">{p.total_damage_dealt_to_champions}</TableCell>
+                        <TableCell align="right">{p.gold_earned}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 };
