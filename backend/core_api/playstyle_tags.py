@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from backend.shared.database import Summoner, MatchPerformance, SummonerPlaystyleTag
+from backend.shared.database import Summoner, MatchPerformance, MatchDetail, SummonerPlaystyleTag
 
 TAG_VERSION = "v1"
 
@@ -14,6 +14,15 @@ class DimensionScores(BaseModel):
     farm: float
     damage: float
     winrate: float
+    earlyAggro: float = 0.0
+    lateCarry: float = 0.0
+    laneLead: float = 0.0
+    objectiveFocus: float = 0.0
+    teamfight: float = 0.0
+    roam: float = 0.0
+    splitPush: float = 0.0
+    farmFocus: float = 0.0
+    visionControl: float = 0.0
 
 
 class TagDefinition(BaseModel):
@@ -77,6 +86,187 @@ def compute_dimensions(matches: List[MatchPerformance]) -> DimensionScores:
         farm=farm,
         damage=damage,
         winrate=winrate,
+    )
+
+
+def _extract_participant(raw: dict, puuid: str) -> Optional[dict]:
+    info = raw.get("info", {}) or {}
+    participants = info.get("participants", []) or []
+    for p in participants:
+        if p.get("puuid") == puuid:
+            return p
+    return None
+
+
+def _compute_advanced_dimensions_for_match(raw: dict, participant: dict) -> Dict[str, float]:
+    info = raw.get("info", {}) or {}
+    challenges = participant.get("challenges", {}) or {}
+
+    time_played = float(participant.get("timePlayed") or info.get("gameDuration") or 0.0)
+    if time_played <= 0:
+        time_played = 1.0
+    time_min = max(1.0, time_played / 60.0)
+
+    kills = int(participant.get("kills", 0))
+    deaths = int(participant.get("deaths", 0))
+    assists = int(participant.get("assists", 0))
+
+    # early aggro
+    early_takedowns = float(challenges.get("takedownsFirstXMinutes", 0.0))
+    early_solos = float(challenges.get("soloKills", 0.0))
+    norm_early_takedowns = min(1.0, early_takedowns / 6.0)
+    norm_early_solos = min(1.0, early_solos / 3.0)
+    early_aggro = 0.4 * norm_early_takedowns + 0.6 * norm_early_solos
+
+    # late carry (DPM + team damage share)
+    dpm = float(challenges.get("damagePerMinute", 0.0))
+    team_share = float(challenges.get("teamDamagePercentage", 0.0))
+    norm_dpm = min(1.0, dpm / 800.0)
+    norm_share = min(1.0, team_share / 0.35) if team_share > 0 else 0.0
+    late_carry = 0.5 * norm_dpm + 0.5 * norm_share
+
+    # lane lead (CS/골드 우위 근사)
+    cs10 = float(challenges.get("laneMinionsFirst10Minutes", 0.0))
+    cs_adv = float(challenges.get("maxCsAdvantageOnLaneOpponent", 0.0))
+    lane_gold_adv = float(challenges.get("laningPhaseGoldExpAdvantage", 0.0))
+    norm_cs10 = min(1.0, cs10 / 80.0)
+    norm_cs_adv = min(1.0, max(0.0, cs_adv) / 30.0)
+    norm_gold = min(1.0, max(0.0, lane_gold_adv) / 800.0)
+    lane_lead = 0.4 * norm_cs10 + 0.3 * norm_cs_adv + 0.3 * norm_gold
+
+    # vision control (시야)
+    vs_pm = float(challenges.get("visionScorePerMinute", 0.0))
+    ctrl = float(challenges.get("controlWardsPlaced", 0.0))
+    ward_kills = float(challenges.get("wardTakedowns", 0.0))
+    norm_vs = min(1.0, vs_pm / 1.5)
+    norm_ctrl = min(1.0, ctrl / 5.0)
+    norm_wk = min(1.0, ward_kills / 6.0)
+    vision_control = 0.4 * norm_vs + 0.3 * norm_ctrl + 0.3 * norm_wk
+
+    # objective focus
+    drag = float(participant.get("dragonKills", 0.0))
+    herald = float(participant.get("riftHeraldTakedowns", 0.0))
+    baron = float(participant.get("baronKills", 0.0))
+    obj_dmg = float(participant.get("damageDealtToObjectives", 0.0))
+    turret_takedowns = float(challenges.get("turretTakedowns", 0.0))
+    plates = float(challenges.get("turretPlatesTaken", 0.0))
+    norm_obj_kills = min(1.0, (drag + herald + baron) / 4.0)
+    norm_obj_dmg = min(1.0, obj_dmg / 20000.0)
+    norm_turret = min(1.0, (turret_takedowns + plates / 2.0) / 4.0)
+    objective_focus = 0.5 * norm_obj_kills + 0.3 * norm_obj_dmg + 0.2 * norm_turret
+
+    # teamfight (킬관여 + 팀딜 비중)
+    kp = float(challenges.get("killParticipation", 0.0))
+    norm_kp = min(1.0, kp / 0.7) if kp > 0 else 0.0
+    teamfight = 0.6 * norm_kp + 0.4 * norm_share
+
+    # roam (TP/라인 이동)
+    tp_tks = float(challenges.get("teleportTakedowns", 0.0))
+    crosslane = float(challenges.get("killsOnOtherLanesEarlyJungleAsLaner", 0.0))
+    alllanes = float(challenges.get("getTakedownsInAllLanesEarlyJungleAsLaner", 0.0))
+    norm_tp = min(1.0, tp_tks / 3.0)
+    norm_cross = min(1.0, crosslane / 3.0)
+    norm_all = min(1.0, alllanes / 3.0)
+    roam = 0.5 * norm_tp + 0.3 * norm_cross + 0.2 * norm_all
+
+    # split push (타워/플레이트)
+    tower_dmg = float(participant.get("damageDealtToBuildings", 0.0))
+    norm_tower_dmg = min(1.0, tower_dmg / 15000.0)
+    split_push = 0.6 * norm_tower_dmg + 0.4 * norm_turret
+
+    # farm focus (CS/분 + GPM)
+    cs = float(participant.get("totalMinionsKilled", 0.0)) + float(participant.get("neutralMinionsKilled", 0.0))
+    cs_per_min = cs / time_min
+    gpm = float(challenges.get("goldPerMinute", 0.0)) or float(info.get("gameLength", 0.0) and (participant.get("goldEarned", 0.0) / time_min))
+    norm_cs = min(1.0, cs_per_min / 9.0)
+    norm_gpm = min(1.0, gpm / 500.0) if gpm else 0.0
+    farm_focus = 0.7 * norm_cs + 0.3 * norm_gpm
+
+    return {
+        "earlyAggro": early_aggro,
+        "lateCarry": late_carry,
+        "laneLead": lane_lead,
+        "objectiveFocus": objective_focus,
+        "teamfight": teamfight,
+        "roam": roam,
+        "splitPush": split_push,
+        "farmFocus": farm_focus,
+        "visionControl": vision_control,
+    }
+
+
+def compute_advanced_dimensions_for_role(
+    db: Session,
+    summoner: Summoner,
+    matches: List[MatchPerformance],
+) -> Dict[str, float]:
+    if not matches:
+        return {
+            "earlyAggro": 0.0,
+            "lateCarry": 0.0,
+            "laneLead": 0.0,
+            "objectiveFocus": 0.0,
+            "teamfight": 0.0,
+            "roam": 0.0,
+            "splitPush": 0.0,
+            "farmFocus": 0.0,
+            "visionControl": 0.0,
+        }
+
+    sums = {
+        "earlyAggro": 0.0,
+        "lateCarry": 0.0,
+        "laneLead": 0.0,
+        "objectiveFocus": 0.0,
+        "teamfight": 0.0,
+        "roam": 0.0,
+        "splitPush": 0.0,
+        "farmFocus": 0.0,
+        "visionControl": 0.0,
+    }
+    count = 0
+
+    for mp in matches:
+        db_match = db.query(MatchDetail).filter(MatchDetail.match_id == mp.match_id).first()
+        if not db_match or not db_match.raw:
+            continue
+        participant = _extract_participant(db_match.raw, summoner.puuid)
+        if not participant:
+            continue
+        adv = _compute_advanced_dimensions_for_match(db_match.raw, participant)
+        for k in sums.keys():
+            sums[k] += adv.get(k, 0.0)
+        count += 1
+
+    if count <= 0:
+        return {k: 0.0 for k in sums.keys()}
+
+    return {k: v / float(count) for k, v in sums.items()}
+
+
+def compute_dimension_scores_for_role(
+    db: Session,
+    summoner: Summoner,
+    matches: List[MatchPerformance],
+) -> DimensionScores:
+    basic = compute_dimensions(matches)
+    adv = compute_advanced_dimensions_for_role(db, summoner, matches)
+    return DimensionScores(
+        aggro=basic.aggro,
+        risk=basic.risk,
+        vision=basic.vision,
+        farm=basic.farm,
+        damage=basic.damage,
+        winrate=basic.winrate,
+        earlyAggro=adv["earlyAggro"],
+        lateCarry=adv["lateCarry"],
+        laneLead=adv["laneLead"],
+        objectiveFocus=adv["objectiveFocus"],
+        teamfight=adv["teamfight"],
+        roam=adv["roam"],
+        splitPush=adv["splitPush"],
+        farmFocus=adv["farmFocus"],
+        visionControl=adv["visionControl"],
     )
 
 
@@ -221,11 +411,9 @@ TAG_DEFINITIONS: List[TagDefinition] = [
 ]
 
 
-def evaluate_tags_for_role(matches: List[MatchPerformance], role: str) -> List[Dict[str, str]]:
-    if not matches:
+def evaluate_tags_for_role(dims: DimensionScores, games: int, role: str) -> List[Dict[str, str]]:
+    if games <= 0:
         return []
-    dims = compute_dimensions(matches)
-    games = len(matches)
     results: List[Dict[str, str]] = []
     for definition in TAG_DEFINITIONS:
         if definition.role_scope not in ("ANY", role):
@@ -274,7 +462,8 @@ def compute_playstyle_tags_for_summoner(db: Session, summoner: Summoner) -> Tupl
 
     tag_map: Dict[str, Dict[str, Optional[str]]] = {}
     for role, matches in role_to_matches.items():
-        tags = evaluate_tags_for_role(matches, role)
+        dims = compute_dimension_scores_for_role(db, summoner, matches)
+        tags = evaluate_tags_for_role(dims, len(matches), role)
         for tag in tags:
             tag_id = tag.get("id")
             if tag_id and tag_id not in tag_map:
