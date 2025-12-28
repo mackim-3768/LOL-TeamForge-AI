@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, Tabs, Tab, Table, TableHead, TableRow, TableCell, TableBody, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
-import type { Summoner } from '../api';
+import type { LeaderboardEntry } from '../api';
 
 const Home: React.FC = () => {
-  const [summoners, setSummoners] = useState<Summoner[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   const navigate = useNavigate();
 
   useEffect(() => {
     // Prefetch summoners for autocomplete
-    api.getSummoners().then(res => setSummoners(res.data)).catch(console.error);
-  }, []);
+    api.getLeaderboard(timeframe).then(res => setLeaderboard(res.data)).catch(console.error);
+  }, [timeframe]);
 
-  const topSummoners = [...summoners].sort((a, b) => b.level - a.level).slice(0, 10);
+  const topSummoners = leaderboard.slice(0, 10);
 
   return (
     <Box
@@ -56,21 +56,25 @@ const Home: React.FC = () => {
               <TableRow>
                 <TableCell align="center">Rank</TableCell>
                 <TableCell>Summoner</TableCell>
-                <TableCell align="right">Level</TableCell>
+                <TableCell align="center">Best Role</TableCell>
+                <TableCell align="right">Score</TableCell>
+                <TableCell align="right">Games</TableCell>
                 <TableCell align="center">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {topSummoners.map((s, index) => (
-                <TableRow key={s.id} hover>
+              {topSummoners.map((entry, index) => (
+                <TableRow key={entry.name} hover>
                   <TableCell align="center">{index + 1}</TableCell>
-                  <TableCell>{s.name}</TableCell>
-                  <TableCell align="right">{s.level}</TableCell>
+                  <TableCell>{entry.name}</TableCell>
+                  <TableCell align="center">{entry.best_role ?? '-'}</TableCell>
+                  <TableCell align="right">{entry.best_score.toFixed(1)}</TableCell>
+                  <TableCell align="right">{entry.games}</TableCell>
                   <TableCell align="center">
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={() => navigate(`/summoner/${s.name}`)}
+                      onClick={() => navigate(`/summoner/${entry.name}`)}
                     >
                       View Detail
                     </Button>

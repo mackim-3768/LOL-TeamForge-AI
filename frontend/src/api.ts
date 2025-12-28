@@ -77,6 +77,14 @@ export interface MatchDetailResponse {
   red_total_gold: number;
 }
 
+export interface LeaderboardEntry {
+  name: string;
+  level: number;
+  best_role: string | null;
+  best_score: number;
+  games: number;
+}
+
 export const api = {
   getSummoners: () => axios.get<Summoner[]>(`${API_URL}/summoners/`),
   registerSummoner: (name: string) => axios.post<Summoner>(`${API_URL}/summoners/`, { name }),
@@ -91,4 +99,6 @@ export const api = {
     }),
   getMatchDetail: (matchId: string) =>
     axios.get<MatchDetailResponse>(`${API_URL}/matches/${matchId}`),
+  getLeaderboard: (timeframe: 'daily' | 'weekly' | 'monthly' | 'yearly') =>
+    axios.get<LeaderboardEntry[]>(`${API_URL}/leaderboard`, { params: { timeframe } }),
 };
