@@ -38,6 +38,19 @@ ROLE_MAPPINGS = {
     "UTILITY": ["UTILITY", "SUPPORT"]
 }
 
+# OP Score weights & baselines (0~10 scale)
+OP_W_KILL = 0.2
+OP_W_KDA = 0.25
+OP_W_DAMAGE = 0.3
+OP_W_GOLD = 0.15
+OP_W_CS = 0.1
+
+OP_BASE_KILLS = 10  # 10킬이면 만점 근처
+OP_BASE_KDA = 3.0   # KDA 3.0을 기준
+OP_BASE_DAMAGE = 30000  # 3만 딜
+OP_BASE_GOLD = 12000    # 1.2만 골드
+OP_BASE_CS = 200        # 200 CS
+
 # --- Pydantic Models ---
 class SummonerCreate(BaseModel):
     name: str
@@ -286,17 +299,25 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
         total_damage = p.get("totalDamageDealtToChampions", 0)
         gold_earned = p.get("goldEarned", 0)
 
-        base_score = (kills * 3) + (assists * 2) - deaths
-        efficiency_score = kda * 10
-        damage_score = total_damage / 1000.0
-        gold_score = gold_earned / 100.0
-        cs_score = total_minions / 2.0
+        # Normalize each component to 0~10 around typical baselines
+        kill_score = min(10.0, (kills / OP_BASE_KILLS) * 10.0) if OP_BASE_KILLS > 0 else 0.0
+        kda_score = min(10.0, (kda / OP_BASE_KDA) * 10.0) if OP_BASE_KDA > 0 else 0.0
+        damage_score = min(10.0, (total_damage / OP_BASE_DAMAGE) * 10.0) if OP_BASE_DAMAGE > 0 else 0.0
+        gold_score = min(10.0, (gold_earned / OP_BASE_GOLD) * 10.0) if OP_BASE_GOLD > 0 else 0.0
+        cs_score = min(10.0, (total_minions / OP_BASE_CS) * 10.0) if OP_BASE_CS > 0 else 0.0
 
-        raw_score = base_score + efficiency_score + damage_score + gold_score + cs_score
+        raw_score = (
+            kill_score * OP_W_KILL
+            + kda_score * OP_W_KDA
+            + damage_score * OP_W_DAMAGE
+            + gold_score * OP_W_GOLD
+            + cs_score * OP_W_CS
+        )
+
         if p.get("win"):
             raw_score *= 1.1
 
-        op_score = max(0.0, round(raw_score, 1))
+        op_score = max(0.0, min(10.0, round(raw_score, 1)))
 
         participant_models.append(
             MatchDetailParticipant(

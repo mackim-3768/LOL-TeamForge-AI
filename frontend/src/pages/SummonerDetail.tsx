@@ -3,9 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api';
 import type { ScoreResponse, MatchPerformance, MatchDetailResponse } from '../api';
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
-
-const DDRAGON_VERSION = '14.23.1';
-const DDRAGON_BASE = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
+import { DDRAGON_BASE, COLOR_BLUE_TEAM, COLOR_RED_TEAM, CHAMPION_ICON_SIZE, ITEM_ICON_SIZE, RUNE_ICON_SIZE } from '../config';
 
 const getChampionIconUrl = (championName: string) =>
   `${DDRAGON_BASE}/img/champion/${championName}.png`;
@@ -205,15 +203,15 @@ const SummonerDetail: React.FC = () => {
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="caption" color="primary">{matchDetail.blue_total_kills}</Typography>
                   <Box flex={1}>
-                    <Box display="flex" height={8} borderRadius={4} overflow="hidden">
+                    <Box display="flex" height={10} borderRadius={4} overflow="hidden">
                       {(() => {
                         const total = matchDetail.blue_total_kills + matchDetail.red_total_kills || 1;
                         const blueRatio = (matchDetail.blue_total_kills / total) * 100;
                         const redRatio = 100 - blueRatio;
                         return (
                           <>
-                            <Box width={`${blueRatio}%`} bgcolor="#42a5f5" />
-                            <Box width={`${redRatio}%`} bgcolor="#ef5350" />
+                            <Box width={`${blueRatio}%`} bgcolor={COLOR_BLUE_TEAM} />
+                            <Box width={`${redRatio}%`} bgcolor={COLOR_RED_TEAM} />
                           </>
                         );
                       })()}
@@ -271,7 +269,7 @@ const SummonerDetail: React.FC = () => {
                             <img
                               src={getChampionIconUrl(p.champion_name)}
                               alt={p.champion_name}
-                              style={{ width: 28, height: 28, borderRadius: 4 }}
+                              style={{ width: CHAMPION_ICON_SIZE, height: CHAMPION_ICON_SIZE, borderRadius: 4 }}
                             />
                             <Typography variant="body2">{p.champion_name}</Typography>
                           </Box>
@@ -282,7 +280,7 @@ const SummonerDetail: React.FC = () => {
                               <img
                                 src={getRuneIconUrl(p.primary_rune_id)}
                                 alt="rune"
-                                style={{ width: 24, height: 24, borderRadius: '50%' }}
+                                style={{ width: RUNE_ICON_SIZE, height: RUNE_ICON_SIZE, borderRadius: '50%' }}
                               />
                             )}
                             <Box display="flex" gap={0.5}>
@@ -291,7 +289,7 @@ const SummonerDetail: React.FC = () => {
                                   key={id}
                                   src={getItemIconUrl(id)}
                                   alt={`item-${id}`}
-                                  style={{ width: 20, height: 20, borderRadius: 3 }}
+                                  style={{ width: ITEM_ICON_SIZE, height: ITEM_ICON_SIZE, borderRadius: 3 }}
                                 />
                               ))}
                             </Box>
