@@ -7,6 +7,7 @@ from backend.collector.collector_service import CollectorService
 from backend.collector.config import Config
 from backend.core_api.ai_module import get_ai_provider, AIProvider
 from backend.core_api.playstyle_tags import upsert_playstyle_snapshot, TAG_VERSION
+from backend.core_api.duo_synergy import compute_duo_synergy
 from backend.tasks import collect_summoner_data
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -143,6 +144,26 @@ class PlaystyleTagSnapshotResponse(BaseModel):
     games_used: int
     calculated_at: Optional[datetime]
     version: str
+
+
+class DuoSynergyStyleBreakdown(BaseModel):
+    early_game: float
+    late_game: float
+    vision_objective: float
+    map_pressure: float
+    risk_control: float
+
+
+class DuoSynergyResponse(BaseModel):
+    summoner1: str
+    summoner2: str
+    synergy_score: int
+    style_score: float
+    performance_score: float
+    games_together: int
+    style_breakdown: DuoSynergyStyleBreakdown
+    summoner1_games: int
+    summoner2_games: int
 
 class LeaderboardEntry(BaseModel):
     name: str
@@ -353,6 +374,44 @@ def recalc_playstyle_tags(
         games_used=total_games,
         calculated_at=snapshot.calculated_at,
         version=snapshot.version,
+    )
+
+
+@app.get("/duo/synergy", response_model=DuoSynergyResponse)
+def get_duo_synergy_endpoint(
+    summoner1: str,
+    summoner2: str,
+    db: Session = Depends(get_db),
+):
+    s1 = db.query(Summoner).filter(Summoner.summoner_name == summoner1).first()
+    if not s1:
+        raise HTTPException(status_code=404, detail="Summoner1 not found")
+
+    s2 = db.query(Summoner).filter(Summoner.summoner_name == summoner2).first()
+    if not s2:
+        raise HTTPException(status_code=404, detail="Summoner2 not found")
+
+    result = compute_duo_synergy(db, s1, s2)
+    breakdown_dict = result.get("style_breakdown", {}) or {}
+
+    breakdown = DuoSynergyStyleBreakdown(
+        early_game=float(breakdown_dict.get("early_game", 0.0)),
+        late_game=float(breakdown_dict.get("late_game", 0.0)),
+        vision_objective=float(breakdown_dict.get("vision_objective", 0.0)),
+        map_pressure=float(breakdown_dict.get("map_pressure", 0.0)),
+        risk_control=float(breakdown_dict.get("risk_control", 0.0)),
+    )
+
+    return DuoSynergyResponse(
+        summoner1=s1.summoner_name,
+        summoner2=s2.summoner_name,
+        synergy_score=int(result.get("synergy_score", 0)),
+        style_score=float(result.get("style_score", 0.0)),
+        performance_score=float(result.get("performance_score", 0.0)),
+        games_together=int(result.get("games_together", 0)),
+        style_breakdown=breakdown,
+        summoner1_games=int(result.get("summoner1_games", 0)),
+        summoner2_games=int(result.get("summoner2_games", 0)),
     )
 
 @app.get("/summoners/{name}/matches", response_model=MatchListResponse)

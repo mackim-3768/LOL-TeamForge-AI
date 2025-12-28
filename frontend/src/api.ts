@@ -99,6 +99,26 @@ export interface LeaderboardEntry {
   games: number;
 }
 
+export interface DuoSynergyStyleBreakdown {
+  early_game: number;
+  late_game: number;
+  vision_objective: number;
+  map_pressure: number;
+  risk_control: number;
+}
+
+export interface DuoSynergyResponse {
+  summoner1: string;
+  summoner2: string;
+  synergy_score: number;
+  style_score: number;
+  performance_score: number;
+  games_together: number;
+  style_breakdown: DuoSynergyStyleBreakdown;
+  summoner1_games: number;
+  summoner2_games: number;
+}
+
 export const api = {
   getSummoners: () => axios.get<Summoner[]>(`${API_URL}/summoners/`),
   registerSummoner: (name: string) => axios.post<Summoner>(`${API_URL}/summoners/`, { name }),
@@ -125,4 +145,8 @@ export const api = {
         ? { params: { no_refresh: options.noRefresh } }
         : undefined,
     ),
+  getDuoSynergy: (summoner1: string, summoner2: string) =>
+    axios.get<DuoSynergyResponse>(`${API_URL}/duo/synergy`, {
+      params: { summoner1, summoner2 },
+    }),
 };

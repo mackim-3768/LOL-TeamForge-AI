@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import SummonerDetail from './pages/SummonerDetail';
 import TeamBuilder from './pages/TeamBuilder';
 import SummonerRegistration from './pages/SummonerRegistration';
+import DuoSynergyTool from './pages/DuoSynergyTool';
 import AdminKeyModal from './components/AdminKeyModal';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
           <Button color="inherit" component={Link} to="/">Home</Button>
           <Button color="inherit" component={Link} to="/register">Register</Button>
           <Button color="inherit" component={Link} to="/team-builder">Team Builder</Button>
+          <Button color="inherit" component={Link} to="/duo-synergy">Duo Synergy</Button>
           <Button color="inherit" onClick={() => setIsAdminModalOpen(true)}>Admin</Button>
         </Toolbar>
       </AppBar>
@@ -29,6 +31,7 @@ function App() {
         <Route path="/register" element={<SummonerRegistration />} />
         <Route path="/summoner/:name" element={<SummonerDetail />} />
         <Route path="/team-builder" element={<TeamBuilder />} />
+        <Route path="/duo-synergy" element={<DuoSynergyTool />} />
       </Routes>
     </Router>
   );
