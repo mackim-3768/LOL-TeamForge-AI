@@ -9,7 +9,7 @@ from backend.core_api.ai_module import get_ai_provider, AIProvider
 from backend.tasks import collect_summoner_data
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -129,6 +129,13 @@ class MatchDetailResponse(BaseModel):
     blue_total_gold: int
     red_total_gold: int
 
+class LeaderboardEntry(BaseModel):
+    name: str
+    level: int
+    best_role: Optional[str]
+    best_score: float
+    games: int
+
 class TeamCompRequest(BaseModel):
     summoner_names: List[str]
 
@@ -175,29 +182,29 @@ def list_summoners(db: Session = Depends(get_db)):
     summoners = db.query(Summoner).all()
     return [SummonerResponse(id=s.id, name=s.summoner_name, level=s.summoner_level) for s in summoners]
 
-@app.get("/summoners/{name}/scores", response_model=List[ScoreResponse])
-def get_summoner_scores(name: str, db: Session = Depends(get_db)):
-    """
-    Calculates 0-100 score for each role based on stored match data.
-    """
-    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
-    if not summoner:
-        raise HTTPException(status_code=404, detail="Summoner not found")
+def _compute_role_scores_for_summoner(
+    summoner: Summoner,
+    db: Session,
+    since: Optional[datetime] = None,
+) -> List[ScoreResponse]:
+    """Internal helper to compute role scores, optionally filtered by time."""
+    scores: List[ScoreResponse] = []
+    roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]  # Standardizing
 
-    scores = []
-    roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] # Standardizing
-    
     for role in roles:
         # Filter matches for this role using fuzzy matching/strict mapping
         possible_lanes = ROLE_MAPPINGS.get(role, [role])
-        matches = db.query(MatchPerformance).filter(
+        query = db.query(MatchPerformance).filter(
             MatchPerformance.summoner_id == summoner.id,
-            MatchPerformance.lane.in_(possible_lanes)
-        ).all()
-        
+            MatchPerformance.lane.in_(possible_lanes),
+        )
+        if since is not None:
+            query = query.filter(MatchPerformance.game_creation >= since)
+        matches = query.all()
+
         if not matches:
             continue
-            
+
         # Calculate Metrics
         total_games = len(matches)
         wins = sum(1 for m in matches if m.win)
@@ -205,32 +212,43 @@ def get_summoner_scores(name: str, db: Session = Depends(get_db)):
         avg_gold = sum(m.gold_per_min for m in matches) / total_games
         avg_vision = sum(m.vision_score for m in matches) / total_games
         win_rate = (wins / total_games) * 100
-        
+
         # Simple Scoring Algorithm (0-100)
         # Weights: WR(40%), KDA(30%), Gold(15%), Vision(15%)
-        # Normalize: 
-        # WR: 50% is baseline(50pts). 
-        # KDA: 3.0 is baseline.
-        # Gold: 400 is baseline.
-        # Vision: 20 is baseline.
-        
         score_wr = min(100, win_rate)
         score_kda = min(100, (avg_kda / 5.0) * 100)
-        score_gold = min(100, (avg_gold / 600) * 100) 
+        score_gold = min(100, (avg_gold / 600) * 100)
         score_vision = min(100, (avg_vision / 40) * 100)
-        
-        final_score = (score_wr * 0.4) + (score_kda * 0.3) + (score_gold * 0.15) + (score_vision * 0.15)
-        
-        scores.append(ScoreResponse(
-            role=role,
-            score=round(final_score, 1),
-            win_rate=round(win_rate, 1),
-            kda=round(avg_kda, 2),
-            avg_gold=round(avg_gold, 1),
-            vision_score=round(avg_vision, 1)
-        ))
-        
+
+        final_score = (
+            score_wr * 0.4
+            + score_kda * 0.3
+            + score_gold * 0.15
+            + score_vision * 0.15
+        )
+
+        scores.append(
+            ScoreResponse(
+                role=role,
+                score=round(final_score, 1),
+                win_rate=round(win_rate, 1),
+                kda=round(avg_kda, 2),
+                avg_gold=round(avg_gold, 1),
+                vision_score=round(avg_vision, 1),
+            )
+        )
+
     return scores
+
+
+@app.get("/summoners/{name}/scores", response_model=List[ScoreResponse])
+def get_summoner_scores(name: str, db: Session = Depends(get_db)):
+    """Calculates 0-100 score for each role based on stored match data (all-time)."""
+    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
+    if not summoner:
+        raise HTTPException(status_code=404, detail="Summoner not found")
+
+    return _compute_role_scores_for_summoner(summoner, db)
 
 @app.get("/summoners/{name}/matches", response_model=MatchListResponse)
 def get_summoner_matches(
@@ -258,6 +276,61 @@ def get_summoner_matches(
     matches = items[:limit]
 
     return MatchListResponse(matches=matches, has_more=has_more)
+
+
+@app.get("/leaderboard", response_model=List[LeaderboardEntry])
+def get_leaderboard(timeframe: str = "daily", db: Session = Depends(get_db)):
+    """Return leaderboard of summoners based on role scores within a timeframe."""
+    valid_timeframes = {"daily", "weekly", "monthly", "yearly"}
+    if timeframe not in valid_timeframes:
+        raise HTTPException(status_code=400, detail="Invalid timeframe")
+
+    now = datetime.utcnow()
+    if timeframe == "daily":
+        since = now - timedelta(days=1)
+    elif timeframe == "weekly":
+        since = now - timedelta(days=7)
+    elif timeframe == "monthly":
+        since = now - timedelta(days=30)
+    else:  # yearly
+        since = now - timedelta(days=365)
+
+    summoners = db.query(Summoner).all()
+    entries: List[LeaderboardEntry] = []
+
+    for summoner in summoners:
+        scores = _compute_role_scores_for_summoner(summoner, db, since=since)
+        if not scores:
+            continue
+
+        best = max(scores, key=lambda s: s.score)
+
+        games = (
+            db.query(MatchPerformance)
+            .filter(
+                MatchPerformance.summoner_id == summoner.id,
+                MatchPerformance.game_creation >= since,
+            )
+            .count()
+        )
+        if games == 0:
+            continue
+
+        entries.append(
+            LeaderboardEntry(
+                name=summoner.summoner_name,
+                level=summoner.summoner_level,
+                best_role=best.role,
+                best_score=best.score,
+                games=games,
+            )
+        )
+
+    # Sort by best_score desc, then by games desc
+    entries.sort(key=lambda e: (e.best_score, e.games), reverse=True)
+
+    # Limit to top 50 to keep payload size manageable
+    return entries[:50]
 
 @app.get("/matches/{match_id}", response_model=MatchDetailResponse)
 def get_match_detail(match_id: str, db: Session = Depends(get_db)):
