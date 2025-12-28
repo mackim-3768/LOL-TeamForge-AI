@@ -100,6 +100,9 @@ class MatchDetailParticipant(BaseModel):
     total_minions_killed: int
     gold_earned: int
     win: bool
+    items: List[int]
+    primary_rune_id: Optional[int] = None
+    op_score: float
 
 class MatchDetailResponse(BaseModel):
     match_id: str
@@ -108,6 +111,10 @@ class MatchDetailResponse(BaseModel):
     queue_id: int
     blue_team: List[MatchDetailParticipant]
     red_team: List[MatchDetailParticipant]
+    blue_total_kills: int
+    red_total_kills: int
+    blue_total_gold: int
+    red_total_gold: int
 
 class TeamCompRequest(BaseModel):
     summoner_names: List[str]
@@ -258,6 +265,39 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
 
         lane = p.get("teamPosition") or p.get("lane") or ""
 
+        items = [p.get(f"item{i}", 0) for i in range(7)]
+
+        primary_rune_id: Optional[int] = None
+        perks = p.get("perks") or {}
+        styles = perks.get("styles") or []
+        if styles:
+            primary_style = None
+            for s in styles:
+                if s.get("description") == "primaryStyle":
+                    primary_style = s
+                    break
+            if primary_style is None:
+                primary_style = styles[0]
+            selections = primary_style.get("selections") or []
+            if selections:
+                primary_rune_id = selections[0].get("perk")
+
+        total_minions = p.get("totalMinionsKilled", 0) + p.get("neutralMinionsKilled", 0)
+        total_damage = p.get("totalDamageDealtToChampions", 0)
+        gold_earned = p.get("goldEarned", 0)
+
+        base_score = (kills * 3) + (assists * 2) - deaths
+        efficiency_score = kda * 10
+        damage_score = total_damage / 1000.0
+        gold_score = gold_earned / 100.0
+        cs_score = total_minions / 2.0
+
+        raw_score = base_score + efficiency_score + damage_score + gold_score + cs_score
+        if p.get("win"):
+            raw_score *= 1.1
+
+        op_score = max(0.0, round(raw_score, 1))
+
         participant_models.append(
             MatchDetailParticipant(
                 summoner_name=p.get("riotIdGameName") or p.get("summonerName") or "",
@@ -269,10 +309,13 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
                 deaths=deaths,
                 assists=assists,
                 kda=kda,
-                total_damage_dealt_to_champions=p.get("totalDamageDealtToChampions", 0),
-                total_minions_killed=p.get("totalMinionsKilled", 0) + p.get("neutralMinionsKilled", 0),
-                gold_earned=p.get("goldEarned", 0),
+                total_damage_dealt_to_champions=total_damage,
+                total_minions_killed=total_minions,
+                gold_earned=gold_earned,
                 win=p.get("win", False),
+                items=items,
+                primary_rune_id=primary_rune_id,
+                op_score=op_score,
             )
         )
 
@@ -288,6 +331,11 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
     game_duration = int(info.get("gameDuration", 0))
     queue_id = int(info.get("queueId", 0))
 
+    blue_total_kills = sum(p.kills for p in blue_team)
+    red_total_kills = sum(p.kills for p in red_team)
+    blue_total_gold = sum(p.gold_earned for p in blue_team)
+    red_total_gold = sum(p.gold_earned for p in red_team)
+
     return MatchDetailResponse(
         match_id=match_id,
         game_creation=game_creation,
@@ -295,6 +343,10 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
         queue_id=queue_id,
         blue_team=blue_team,
         red_team=red_team,
+        blue_total_kills=blue_total_kills,
+        red_total_kills=red_total_kills,
+        blue_total_gold=blue_total_gold,
+        red_total_gold=red_total_gold,
     )
 
 @app.put("/admin/config/riot-key")

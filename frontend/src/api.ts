@@ -59,6 +59,9 @@ export interface MatchDetailParticipant {
   total_minions_killed: number;
   gold_earned: number;
   win: boolean;
+  items: number[];
+  primary_rune_id?: number | null;
+  op_score: number;
 }
 
 export interface MatchDetailResponse {
@@ -68,6 +71,10 @@ export interface MatchDetailResponse {
   queue_id: number;
   blue_team: MatchDetailParticipant[];
   red_team: MatchDetailParticipant[];
+  blue_total_kills: number;
+  red_total_kills: number;
+  blue_total_gold: number;
+  red_total_gold: number;
 }
 
 export const api = {

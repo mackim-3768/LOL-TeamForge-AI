@@ -4,6 +4,18 @@ import { api } from '../api';
 import type { ScoreResponse, MatchPerformance, MatchDetailResponse } from '../api';
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 
+const DDRAGON_VERSION = '14.23.1';
+const DDRAGON_BASE = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
+
+const getChampionIconUrl = (championName: string) =>
+  `${DDRAGON_BASE}/img/champion/${championName}.png`;
+
+const getItemIconUrl = (itemId: number) =>
+  `${DDRAGON_BASE}/img/item/${itemId}.png`;
+
+const getRuneIconUrl = (runeId: number) =>
+  `${DDRAGON_BASE}/img/perk/${runeId}.png`;
+
 const SummonerDetail: React.FC = () => {
   const { name } = useParams<{ name: string }>();
   const [scores, setScores] = useState<ScoreResponse[]>([]);
@@ -189,24 +201,102 @@ const SummonerDetail: React.FC = () => {
               </Typography>
 
               <Box>
+                <Typography variant="subtitle2" gutterBottom>Total Kill</Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="caption" color="primary">{matchDetail.blue_total_kills}</Typography>
+                  <Box flex={1}>
+                    <Box display="flex" height={8} borderRadius={4} overflow="hidden">
+                      {(() => {
+                        const total = matchDetail.blue_total_kills + matchDetail.red_total_kills || 1;
+                        const blueRatio = (matchDetail.blue_total_kills / total) * 100;
+                        const redRatio = 100 - blueRatio;
+                        return (
+                          <>
+                            <Box width={`${blueRatio}%`} bgcolor="#42a5f5" />
+                            <Box width={`${redRatio}%`} bgcolor="#ef5350" />
+                          </>
+                        );
+                      })()}
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="error">{matchDetail.red_total_kills}</Typography>
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>Total Gold</Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="caption" color="primary">{Math.round(matchDetail.blue_total_gold / 100) / 10}k</Typography>
+                  <Box flex={1}>
+                    <Box display="flex" height={8} borderRadius={4} overflow="hidden">
+                      {(() => {
+                        const total = matchDetail.blue_total_gold + matchDetail.red_total_gold || 1;
+                        const blueRatio = (matchDetail.blue_total_gold / total) * 100;
+                        const redRatio = 100 - blueRatio;
+                        return (
+                          <>
+                            <Box width={`${blueRatio}%`} bgcolor="#42a5f5" />
+                            <Box width={`${redRatio}%`} bgcolor="#ef5350" />
+                          </>
+                        );
+                      })()}
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="error">{Math.round(matchDetail.red_total_gold / 100) / 10}k</Typography>
+                </Box>
+              </Box>
+
+              <Box>
                 <Typography variant="h6" gutterBottom>Blue Team</Typography>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
                       <TableCell>Summoner</TableCell>
                       <TableCell>Champion</TableCell>
+                      <TableCell>Rune / Items</TableCell>
                       <TableCell>Lane</TableCell>
                       <TableCell align="right">K / D / A</TableCell>
                       <TableCell align="right">CS</TableCell>
                       <TableCell align="right">Damage</TableCell>
                       <TableCell align="right">Gold</TableCell>
+                      <TableCell align="right">OP Score</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {matchDetail.blue_team.map((p) => (
                       <TableRow key={p.summoner_name + p.champion_name}>
                         <TableCell>{p.summoner_name}</TableCell>
-                        <TableCell>{p.champion_name}</TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <img
+                              src={getChampionIconUrl(p.champion_name)}
+                              alt={p.champion_name}
+                              style={{ width: 28, height: 28, borderRadius: 4 }}
+                            />
+                            <Typography variant="body2">{p.champion_name}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            {p.primary_rune_id && (
+                              <img
+                                src={getRuneIconUrl(p.primary_rune_id)}
+                                alt="rune"
+                                style={{ width: 24, height: 24, borderRadius: '50%' }}
+                              />
+                            )}
+                            <Box display="flex" gap={0.5}>
+                              {p.items.filter((id) => id > 0).map((id) => (
+                                <img
+                                  key={id}
+                                  src={getItemIconUrl(id)}
+                                  alt={`item-${id}`}
+                                  style={{ width: 20, height: 20, borderRadius: 3 }}
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+                        </TableCell>
                         <TableCell>{p.lane || p.role}</TableCell>
                         <TableCell align="right">
                           {p.kills} / {p.deaths} / {p.assists}
@@ -214,6 +304,7 @@ const SummonerDetail: React.FC = () => {
                         <TableCell align="right">{p.total_minions_killed}</TableCell>
                         <TableCell align="right">{p.total_damage_dealt_to_champions}</TableCell>
                         <TableCell align="right">{p.gold_earned}</TableCell>
+                        <TableCell align="right">{p.op_score.toFixed(1)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -227,18 +318,50 @@ const SummonerDetail: React.FC = () => {
                     <TableRow>
                       <TableCell>Summoner</TableCell>
                       <TableCell>Champion</TableCell>
+                      <TableCell>Rune / Items</TableCell>
                       <TableCell>Lane</TableCell>
                       <TableCell align="right">K / D / A</TableCell>
                       <TableCell align="right">CS</TableCell>
                       <TableCell align="right">Damage</TableCell>
                       <TableCell align="right">Gold</TableCell>
+                      <TableCell align="right">OP Score</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {matchDetail.red_team.map((p) => (
                       <TableRow key={p.summoner_name + p.champion_name}>
                         <TableCell>{p.summoner_name}</TableCell>
-                        <TableCell>{p.champion_name}</TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <img
+                              src={getChampionIconUrl(p.champion_name)}
+                              alt={p.champion_name}
+                              style={{ width: 28, height: 28, borderRadius: 4 }}
+                            />
+                            <Typography variant="body2">{p.champion_name}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            {p.primary_rune_id && (
+                              <img
+                                src={getRuneIconUrl(p.primary_rune_id)}
+                                alt="rune"
+                                style={{ width: 24, height: 24, borderRadius: '50%' }}
+                              />
+                            )}
+                            <Box display="flex" gap={0.5}>
+                              {p.items.filter((id) => id > 0).map((id) => (
+                                <img
+                                  key={id}
+                                  src={getItemIconUrl(id)}
+                                  alt={`item-${id}`}
+                                  style={{ width: 20, height: 20, borderRadius: 3 }}
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+                        </TableCell>
                         <TableCell>{p.lane || p.role}</TableCell>
                         <TableCell align="right">
                           {p.kills} / {p.deaths} / {p.assists}
@@ -246,6 +369,7 @@ const SummonerDetail: React.FC = () => {
                         <TableCell align="right">{p.total_minions_killed}</TableCell>
                         <TableCell align="right">{p.total_damage_dealt_to_champions}</TableCell>
                         <TableCell align="right">{p.gold_earned}</TableCell>
+                        <TableCell align="right">{p.op_score.toFixed(1)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
