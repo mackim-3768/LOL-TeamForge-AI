@@ -190,13 +190,12 @@ const SummonerDetail: React.FC = () => {
           <Box display="flex" flexWrap="wrap" gap={1}>
             {playstyleSnapshot.tags.map((t) => (
               <Box
-                className=''
                 key={t.id}
                 sx={{
                   px: 1,
                   py: 0.5,
                   borderRadius: 2,
-                  bgcolor: '#e3f2fd',
+                  bgcolor: t.color || '#e3f2fd',
                   fontSize: 12,
                 }}
               >

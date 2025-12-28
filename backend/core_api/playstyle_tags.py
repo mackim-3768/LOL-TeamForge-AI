@@ -24,6 +24,7 @@ class TagDefinition(BaseModel):
     weights: Dict[str, float]
     threshold: float
     risk_max: Optional[float] = None
+    color: Optional[str] = None
 
 
 ROLE_MAPPINGS: Dict[str, List[str]] = {
@@ -87,6 +88,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=10,
         weights={"aggro": 1.0, "risk": 0.3},
         threshold=0.9,
+        color="#ef5350",
     ),
     TagDefinition(
         id="GLOBAL_SAFE",
@@ -96,6 +98,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         weights={"risk": -1.0, "winrate": 0.4, "farm": 0.2},
         threshold=0.5,
         risk_max=0.4,
+        color="#66bb6a",
     ),
     TagDefinition(
         id="GLOBAL_VISION_CONTROL",
@@ -104,6 +107,25 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=5,
         weights={"vision": 1.0},
         threshold=0.75,
+        color="#5c6bc0",
+    ),
+    TagDefinition(
+        id="GLOBAL_EARLY_PRESSURE",
+        label_ko="초반 압박형",
+        role_scope="ANY",
+        min_games=8,
+        weights={"aggro": 0.8, "farm": 0.2},
+        threshold=0.8,
+        color="#ffb74d",
+    ),
+    TagDefinition(
+        id="GLOBAL_LATE_SCALER",
+        label_ko="후반 성장형",
+        role_scope="ANY",
+        min_games=8,
+        weights={"farm": 0.6, "damage": 0.4},
+        threshold=0.8,
+        color="#26c6da",
     ),
     TagDefinition(
         id="TOP_LANE_BULLY",
@@ -113,6 +135,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         weights={"aggro": 0.7, "damage": 0.3},
         threshold=0.8,
         risk_max=0.9,
+        color="#ff8a65",
     ),
     TagDefinition(
         id="TOP_SCALING",
@@ -121,6 +144,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"farm": 0.6, "damage": 0.4},
         threshold=0.75,
+        color="#4db6ac",
     ),
     TagDefinition(
         id="JUNGLE_GANKER",
@@ -129,6 +153,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"aggro": 0.8, "damage": 0.2},
         threshold=0.8,
+        color="#ffb74d",
     ),
     TagDefinition(
         id="JUNGLE_FARMER",
@@ -137,6 +162,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"farm": 0.8, "aggro": -0.2},
         threshold=0.6,
+        color="#aed581",
     ),
     TagDefinition(
         id="MID_CARRY",
@@ -145,6 +171,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"damage": 0.7, "aggro": 0.3},
         threshold=0.8,
+        color="#ba68c8",
     ),
     TagDefinition(
         id="MID_SAFE_FARM",
@@ -153,6 +180,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"farm": 0.7, "risk": -0.3},
         threshold=0.7,
+        color="#81c784",
     ),
     TagDefinition(
         id="BOTTOM_HYPER_CARRY",
@@ -161,6 +189,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"farm": 0.6, "damage": 0.4},
         threshold=0.8,
+        color="#ffca28",
     ),
     TagDefinition(
         id="BOTTOM_LANE_TRADER",
@@ -169,6 +198,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"aggro": 0.7, "damage": 0.3},
         threshold=0.75,
+        color="#ff8a65",
     ),
     TagDefinition(
         id="SUPPORT_VISION",
@@ -177,6 +207,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"vision": 1.0},
         threshold=0.8,
+        color="#9575cd",
     ),
     TagDefinition(
         id="SUPPORT_SAFE_UTILITY",
@@ -185,6 +216,7 @@ TAG_DEFINITIONS: List[TagDefinition] = [
         min_games=8,
         weights={"risk": -0.5, "vision": 0.3, "winrate": 0.2},
         threshold=0.6,
+        color="#4fc3f7",
     ),
 ]
 
@@ -207,7 +239,11 @@ def evaluate_tags_for_role(matches: List[MatchPerformance], role: str) -> List[D
             value = getattr(dims, key, 0.0)
             score += value * weight
         if score >= definition.threshold:
-            results.append({"id": definition.id, "label_ko": definition.label_ko})
+            results.append({
+                "id": definition.id,
+                "label_ko": definition.label_ko,
+                "color": definition.color,
+            })
     return results
 
 
@@ -236,15 +272,19 @@ def compute_playstyle_tags_for_summoner(db: Session, summoner: Summoner) -> Tupl
 
     primary_role = max(role_to_matches.items(), key=lambda item: len(item[1]))[0]
 
-    tag_map: Dict[str, str] = {}
+    tag_map: Dict[str, Dict[str, Optional[str]]] = {}
     for role, matches in role_to_matches.items():
         tags = evaluate_tags_for_role(matches, role)
         for tag in tags:
             tag_id = tag.get("id")
             if tag_id and tag_id not in tag_map:
-                tag_map[tag_id] = tag.get("label_ko", "")
+                tag_map[tag_id] = {
+                    "id": tag_id,
+                    "label_ko": tag.get("label_ko", ""),
+                    "color": tag.get("color"),
+                }
 
-    ordered_tags = [{"id": k, "label_ko": v} for k, v in tag_map.items()]
+    ordered_tags = list(tag_map.values())
     return ordered_tags, primary_role, total_games
 
 

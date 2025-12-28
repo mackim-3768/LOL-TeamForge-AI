@@ -134,6 +134,7 @@ class MatchDetailResponse(BaseModel):
 class PlaystyleTagItem(BaseModel):
     id: str
     label_ko: str
+    color: Optional[str] = None
 
 
 class PlaystyleTagSnapshotResponse(BaseModel):
@@ -308,7 +309,8 @@ def get_playstyle_tags(name: str, db: Session = Depends(get_db)):
         if not tag_id:
             continue
         label = tag.get("label_ko") or tag.get("label") or ""
-        items.append(PlaystyleTagItem(id=tag_id, label_ko=label))
+        color = tag.get("color")
+        items.append(PlaystyleTagItem(id=tag_id, label_ko=label, color=color))
 
     return PlaystyleTagSnapshotResponse(
         tags=items,
@@ -343,7 +345,7 @@ def recalc_playstyle_tags(
         tag_id = tag.get("id")
         if not tag_id:
             continue
-        items.append(PlaystyleTagItem(id=tag_id, label_ko=tag.get("label_ko", "")))
+        items.append(PlaystyleTagItem(id=tag_id, label_ko=tag.get("label_ko", ""), color=tag.get("color")))
 
     return PlaystyleTagSnapshotResponse(
         tags=items,

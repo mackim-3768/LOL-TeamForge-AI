@@ -21,6 +21,7 @@ export interface ScoreResponse {
 export interface PlaystyleTag {
   id: string;
   label_ko: string;
+  color?: string | null;
 }
 
 export interface PlaystyleTagSnapshot {
