@@ -45,22 +45,37 @@ class CollectorService:
                 break
 
             for match_id in match_ids:
-                # Check if match already exists
-                exists = session.query(MatchPerformance).filter_by(match_id=match_id, summoner_id=summoner.id).first()
-                if exists:
-                    continue
-                
                 match_details = self.riot_client.get_match_details(match_id)
                 if not match_details:
                     continue
 
-                performance_data = DataProcessor.extract_performance(match_details, summoner.puuid)
-                if performance_data:
-                    performance = MatchPerformance(**performance_data)
-                    performance.summoner_id = summoner.id
-                    session.add(performance)
-                    session.commit()
-                    logger.info(f"Saved match {match_id} for {summoner.summoner_name}")
+                info = match_details.get("info", {})
+                participants = info.get("participants", [])
+                if not participants:
+                    continue
+
+                puuids_in_match = [p.get("puuid") for p in participants if p.get("puuid")]
+                if not puuids_in_match:
+                    continue
+
+                # 현재 매치에 함께 참가한 등록된 소환사들을 모두 조회
+                related_summoners = session.query(Summoner).filter(Summoner.puuid.in_(puuids_in_match)).all()
+                for related_summoner in related_summoners:
+                    # Check if match already exists
+                    exists = session.query(MatchPerformance).filter_by(
+                        match_id=match_id,
+                        summoner_id=related_summoner.id
+                    ).first()
+                    if exists:
+                        continue
+
+                    performance_data = DataProcessor.extract_performance(match_details, related_summoner.puuid)
+                    if performance_data:
+                        performance = MatchPerformance(**performance_data)
+                        performance.summoner_id = related_summoner.id
+                        session.add(performance)
+                        session.commit()
+                        logger.info(f"Saved match {match_id} for {related_summoner.summoner_name}")
 
             if len(match_ids) < page_size:
                 break
