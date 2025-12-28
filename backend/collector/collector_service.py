@@ -42,7 +42,11 @@ class CollectorService:
         while True:
             match_ids = self.riot_client.get_match_ids(summoner.puuid, start=start, count=page_size)
             if not match_ids:
+                logger.info(f"No more matches for {summoner.summoner_name} (start={start})")
                 break
+
+            logger.info(f"Processing {len(match_ids)} matches for {summoner.summoner_name} (start={start})")
+            page_saved = 0
 
             for match_id in match_ids:
                 match_details = self.riot_client.get_match_details(match_id)
@@ -76,6 +80,9 @@ class CollectorService:
                         session.add(performance)
                         session.commit()
                         logger.info(f"Saved match {match_id} for {related_summoner.summoner_name}")
+                        page_saved += 1
+
+            logger.info(f"Page completed for {summoner.summoner_name}: start={start}, total={len(match_ids)}, saved={page_saved}")
 
             if len(match_ids) < page_size:
                 break

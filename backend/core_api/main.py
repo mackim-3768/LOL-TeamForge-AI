@@ -67,6 +67,9 @@ class TeamCompRequest(BaseModel):
 class ConfigUpdate(BaseModel):
     riot_api_key: str
 
+class OpenAIConfigUpdate(BaseModel):
+    openai_api_key: str
+
 # --- Endpoints ---
 
 @app.post("/summoners/", response_model=SummonerResponse)
@@ -165,6 +168,11 @@ def get_summoner_scores(name: str, db: Session = Depends(get_db)):
 def update_riot_key(config: ConfigUpdate):
     Config.update_api_key(config.riot_api_key)
     return {"message": "API Key updated successfully"}
+
+@app.put("/admin/config/openai-key")
+def update_openai_key(config: OpenAIConfigUpdate):
+    Config.update_openai_key(config.openai_api_key)
+    return {"message": "OpenAI API Key updated successfully"}
 
 @app.get("/analysis/summoner/{name}", response_model=AnalysisResponse)
 def analyze_summoner(name: str, db: Session = Depends(get_db)):

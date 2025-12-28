@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    RIOT_API_KEY = os.getenv("RIOT_API_KEY", "RGAPI-e90559a9-fe47-4b30-adcd-e411949fbf8d")
+    RIOT_API_KEY = os.getenv("RIOT_API_KEY", "RGAPI-d23289f8-167f-46d9-a091-bfe3a90fdc86")
     # Flex Queue ID is 440
     QUEUE_ID = 440
     REGION = "kr" # Defaulting to KR as per "League of Legends" (Korean context implied)
