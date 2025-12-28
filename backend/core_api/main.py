@@ -9,6 +9,7 @@ from backend.core_api.ai_module import get_ai_provider, AIProvider
 from backend.tasks import collect_summoner_data
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from datetime import datetime
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +61,30 @@ class ScoreResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     analysis: str
+
+class MatchPerformanceResponse(BaseModel):
+    id: int
+    match_id: str
+    game_creation: datetime
+    lane: str
+    role: str
+    champion_name: str
+    win: bool
+    kills: int
+    deaths: int
+    assists: int
+    kda: float
+    gold_per_min: float
+    vision_score: int
+    total_minions_killed: int
+    total_damage_dealt_to_champions: int
+
+    class Config:
+        from_attributes = True
+
+class MatchListResponse(BaseModel):
+    matches: List[MatchPerformanceResponse]
+    has_more: bool
 
 class TeamCompRequest(BaseModel):
     summoner_names: List[str]
@@ -163,6 +188,33 @@ def get_summoner_scores(name: str, db: Session = Depends(get_db)):
         ))
         
     return scores
+
+@app.get("/summoners/{name}/matches", response_model=MatchListResponse)
+def get_summoner_matches(
+    name: str,
+    offset: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """Return paginated matches for a summoner, most recent first."""
+    if limit <= 0 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+
+    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
+    if not summoner:
+        raise HTTPException(status_code=404, detail="Summoner not found")
+
+    query = (
+        db.query(MatchPerformance)
+        .filter(MatchPerformance.summoner_id == summoner.id)
+        .order_by(MatchPerformance.game_creation.desc())
+    )
+
+    items = query.offset(offset).limit(limit + 1).all()
+    has_more = len(items) > limit
+    matches = items[:limit]
+
+    return MatchListResponse(matches=matches, has_more=has_more)
 
 @app.put("/admin/config/riot-key")
 def update_riot_key(config: ConfigUpdate):
