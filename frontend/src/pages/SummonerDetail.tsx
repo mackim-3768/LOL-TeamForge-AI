@@ -5,6 +5,7 @@ import type { ScoreResponse, MatchPerformance, MatchDetailResponse, PlaystyleTag
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { DDRAGON_BASE, COLOR_BLUE_TEAM, COLOR_RED_TEAM, CHAMPION_ICON_SIZE, ITEM_ICON_SIZE, RUNE_ICON_SIZE } from '../config';
 import RoleRadarChart from '../components/RoleRadarChart';
+import MarkdownPreview from '../components/MarkdownPreview';
 
 const getChampionIconUrl = (championName: string) =>
   `${DDRAGON_BASE}/img/champion/${championName}.png`;
@@ -19,6 +20,8 @@ const SummonerDetail: React.FC = () => {
   const { name } = useParams<{ name: string }>();
   const [scores, setScores] = useState<ScoreResponse[]>([]);
   const [analysis, setAnalysis] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [matches, setMatches] = useState<MatchPerformance[]>([]);
   const [matchesOffset, setMatchesOffset] = useState(0);
   const [hasMoreMatches, setHasMoreMatches] = useState(true);
@@ -58,13 +61,11 @@ const SummonerDetail: React.FC = () => {
 
   const fetchData = async (summonerName: string) => {
     try {
-      const [scoresRes, analysisRes, matchesRes] = await Promise.all([
+      const [scoresRes, matchesRes] = await Promise.all([
         api.getScores(summonerName),
-        api.getAnalysis(summonerName),
         api.getMatches(summonerName, 0, PAGE_SIZE),
       ]);
       setScores(scoresRes.data);
-      setAnalysis(analysisRes.data.analysis);
       setMatches(matchesRes.data.matches);
       setHasMoreMatches(matchesRes.data.has_more);
       setMatchesOffset(matchesRes.data.matches.length);
@@ -73,6 +74,22 @@ const SummonerDetail: React.FC = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAnalysis = async () => {
+    if (!name || analysisLoading) return;
+
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const res = await api.getAnalysis(name);
+      setAnalysis(res.data.analysis);
+    } catch (err) {
+      console.error(err);
+      setAnalysisError('AI 분석을 불러오지 못했습니다.');
+    } finally {
+      setAnalysisLoading(false);
     }
   };
 
@@ -235,10 +252,32 @@ const SummonerDetail: React.FC = () => {
 
       <Divider style={{ margin: '20px 0' }} />
       
-      <Typography variant="h5" gutterBottom>AI Analysis</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="h5" gutterBottom>AI Analysis</Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={loadAnalysis}
+          disabled={analysisLoading || !name}
+        >
+          {analysisLoading ? 'AI 분석 중...' : 'AI 분석 업데이트'}
+        </Button>
+      </Box>
       <Card>
         <CardContent>
-          <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>{analysis}</Typography>
+          {analysisLoading ? (
+            <CircularProgress size={20} />
+          ) : analysisError ? (
+            <Typography variant="body2" color="error">
+              {analysisError}
+            </Typography>
+          ) : analysis ? (
+            <MarkdownPreview content={analysis} />
+          ) : (
+            <Typography variant="body2" color="textSecondary">
+              아직 AI 분석이 없습니다. 상단의 "AI 분석 업데이트" 버튼을 눌러 생성해 주세요.
+            </Typography>
+          )}
         </CardContent>
       </Card>
 

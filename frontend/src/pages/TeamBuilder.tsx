@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { Summoner } from '../api';
 import { Container, Typography, Button, FormControl, InputLabel, Select, MenuItem, Chip, Box, Card, CardContent } from '@mui/material';
+import MarkdownPreview from '../components/MarkdownPreview';
 import type { SelectChangeEvent } from '@mui/material';
 
 const TeamBuilder: React.FC = () => {
@@ -80,7 +81,7 @@ const TeamBuilder: React.FC = () => {
         <Card style={{ marginTop: '20px' }}>
           <CardContent>
             <Typography variant="h6">AI Strategy</Typography>
-            <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>{recommendation}</Typography>
+            <MarkdownPreview content={recommendation} />
           </CardContent>
         </Card>
       )}
