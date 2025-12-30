@@ -1,4 +1,4 @@
-# Daily Idea Planning - 2025-W10-day4
+# Daily Idea Planning - 2025-W10-day5
 
 ## 1. Discovery (Ideas)
 
@@ -76,7 +76,7 @@
 ## 4. Backlog Draft
 
 ### Suggested GitHub Issue Title
-`[Daily][2025-W10-day4] 소환사 상세 페이지 내 최근 전적 추이 그래프(Trend Chart) 구현`
+`[Daily][2025-W10-day5] 소환사 상세 페이지 내 최근 전적 추이 그래프(Trend Chart) 구현`
 
 ### Task Breakdown
 
