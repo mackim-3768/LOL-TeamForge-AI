@@ -123,7 +123,10 @@ export const api = {
   getSummoners: () => axios.get<Summoner[]>(`${API_URL}/summoners/`),
   registerSummoner: (name: string) => axios.post<Summoner>(`${API_URL}/summoners/`, { name }),
   getScores: (name: string) => axios.get<ScoreResponse[]>(`${API_URL}/summoners/${name}/scores`),
-  getAnalysis: (name: string) => axios.get<AnalysisResponse>(`${API_URL}/analysis/summoner/${name}`),
+  getAnalysis: (name: string, options?: { forceRefresh?: boolean }) =>
+    axios.get<AnalysisResponse>(`${API_URL}/analysis/summoner/${name}` , {
+      params: options?.forceRefresh ? { force_refresh: true } : undefined,
+    }),
   recommendComp: (names: string[]) => axios.post<AnalysisResponse>(`${API_URL}/analysis/recommend-comp`, { summoner_names: names }),
   updateRiotKey: (key: string) => axios.put(`${API_URL}/admin/config/riot-key`, { riot_api_key: key }),
   updateOpenAIKey: (key: string) => axios.put(`${API_URL}/admin/config/openai-key`, { openai_api_key: key }),

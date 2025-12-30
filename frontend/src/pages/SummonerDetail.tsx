@@ -42,6 +42,7 @@ const SummonerDetail: React.FC = () => {
   useEffect(() => {
     if (name) {
       fetchData(name);
+      loadAnalysis();
     }
   }, [name]);
 
@@ -77,13 +78,13 @@ const SummonerDetail: React.FC = () => {
     }
   };
 
-  const loadAnalysis = async () => {
+  const loadAnalysis = async (options?: { forceRefresh?: boolean }) => {
     if (!name || analysisLoading) return;
 
     setAnalysisLoading(true);
     setAnalysisError(null);
     try {
-      const res = await api.getAnalysis(name);
+      const res = await api.getAnalysis(name, options);
       setAnalysis(res.data.analysis);
     } catch (err) {
       console.error(err);
@@ -257,7 +258,7 @@ const SummonerDetail: React.FC = () => {
         <Button
           variant="outlined"
           size="small"
-          onClick={loadAnalysis}
+          onClick={() => loadAnalysis({ forceRefresh: true })}
           disabled={analysisLoading || !name}
         >
           {analysisLoading ? 'AI 분석 중...' : 'AI 분석 업데이트'}

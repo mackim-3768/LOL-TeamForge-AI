@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from backend.shared.database import get_db, Summoner, MatchPerformance, MatchDetail, SummonerPlaystyleTag
+from backend.shared.database import get_db, Summoner, MatchPerformance, MatchDetail, SummonerPlaystyleTag, SummonerAnalysis
 from backend.collector.collector_service import CollectorService
 from backend.collector.config import Config
 from backend.core_api.ai_module import get_ai_provider, AIProvider
@@ -76,6 +76,7 @@ class ScoreResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     analysis: str
+    updated_at: Optional[datetime] = None
 
 class MatchPerformanceResponse(BaseModel):
     id: int
@@ -636,14 +637,58 @@ def update_openai_key(config: OpenAIConfigUpdate):
     return {"message": "OpenAI API Key updated successfully"}
 
 @app.get("/analysis/summoner/{name}", response_model=AnalysisResponse)
-def analyze_summoner(name: str, db: Session = Depends(get_db)):
-    scores = get_summoner_scores(name, db) # Reuse logic to get stats
-    # Convert ScoreResponse objects to dicts for AI
+def analyze_summoner(
+    name: str,
+    force_refresh: bool = False,
+    db: Session = Depends(get_db),
+):
+    # Ensure summoner exists and get its ID
+    summoner = db.query(Summoner).filter(Summoner.summoner_name == name).first()
+    if not summoner:
+        raise HTTPException(status_code=404, detail="Summoner not found")
+
+    # Return cached analysis if available and not forcing refresh
+    if not force_refresh:
+        existing = (
+            db.query(SummonerAnalysis)
+            .filter(SummonerAnalysis.summoner_id == summoner.id)
+            .first()
+        )
+        if existing:
+            return AnalysisResponse(
+                analysis=existing.analysis or "",
+                updated_at=existing.updated_at,
+            )
+
+    # No cached analysis, or refresh explicitly requested: recompute via AI
+    scores = get_summoner_scores(name, db)  # Reuse logic to get stats
     stats_dicts = [s.dict() for s in scores]
-    
+
     ai = get_ai_provider()
-    analysis = ai.analyze_summoner_performance(name, stats_dicts)
-    return AnalysisResponse(analysis=analysis)
+    analysis_text = ai.analyze_summoner_performance(name, stats_dicts)
+
+    # Upsert into SummonerAnalysis
+    now = datetime.utcnow()
+    existing = (
+        db.query(SummonerAnalysis)
+        .filter(SummonerAnalysis.summoner_id == summoner.id)
+        .first()
+    )
+    if existing:
+        existing.analysis = analysis_text
+        existing.updated_at = now
+    else:
+        db.add(
+            SummonerAnalysis(
+                summoner_id=summoner.id,
+                analysis=analysis_text,
+                updated_at=now,
+            )
+        )
+
+    db.commit()
+
+    return AnalysisResponse(analysis=analysis_text, updated_at=now)
 
 @app.post("/analysis/recommend-comp", response_model=AnalysisResponse)
 def recommend_team(request: TeamCompRequest, db: Session = Depends(get_db)):

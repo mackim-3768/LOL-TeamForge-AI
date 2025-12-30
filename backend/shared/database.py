@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, ForeignKey, DateTime, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, ForeignKey, DateTime, JSON, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -34,6 +34,7 @@ class Summoner(Base):
     
     matches = relationship("MatchPerformance", back_populates="summoner")
     playstyle_tags = relationship("SummonerPlaystyleTag", back_populates="summoner")
+    analysis = relationship("SummonerAnalysis", back_populates="summoner", uselist=False)
 
 class MatchPerformance(Base):
     __tablename__ = "match_performances"
@@ -83,6 +84,17 @@ class SummonerPlaystyleTag(Base):
     version = Column(String(20), default="v1")
 
     summoner = relationship("Summoner", back_populates="playstyle_tags")
+
+
+class SummonerAnalysis(Base):
+    __tablename__ = "summoner_analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    summoner_id = Column(Integer, ForeignKey("summoners.id"), index=True, unique=True)
+    analysis = Column(Text)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+    summoner = relationship("Summoner", back_populates="analysis")
 
 def init_db():
     Base.metadata.create_all(bind=engine)
