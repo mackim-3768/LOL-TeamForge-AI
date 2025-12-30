@@ -15,5 +15,56 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
 
+  redis:
+    image: redis:7-alpine
+    container_name: lol-flex-analyst-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: lol-flex-analyst-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: mysql+pymysql://lol_user:lol_pass@mariadb:3306/lol_flex_analyst
+      REDIS_URL: redis://redis:6379/0
+      RIOT_API_KEY: ${RIOT_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      - mariadb
+      - redis
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: lol-flex-analyst-worker
+    restart: unless-stopped
+    environment:
+      DB_URL: mysql+pymysql://lol_user:lol_pass@mariadb:3306/lol_flex_analyst
+      REDIS_URL: redis://redis:6379/0
+      RIOT_API_KEY: ${RIOT_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      - mariadb
+      - redis
+    command: ["celery", "-A", "backend.celery_app.celery_app", "worker", "--loglevel=info"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: lol-flex-analyst-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
 volumes:
   mariadb_data:
