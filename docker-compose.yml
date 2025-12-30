@@ -66,5 +66,16 @@ services:
     ports:
       - "5173:5173"
 
+  frontend-v2:
+    build:
+      context: .
+      dockerfile: frontend_v2/Dockerfile
+    container_name: lol-flex-analyst-frontend-v2
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5174:5173"
+
 volumes:
   mariadb_data:
