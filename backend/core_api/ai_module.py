@@ -32,7 +32,10 @@ class OpenAIProvider(AIProvider):
             response = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a League of Legends coach assistant."},
+                    {
+                        "role": "system",
+                        "content": "You are a League of Legends coach assistant. Always respond in Korean. Use clear, natural Korean and keep explanations concise.",
+                    },
                     {"role": "user", "content": prompt}
                 ]
             )
@@ -46,7 +49,10 @@ class OpenAIProvider(AIProvider):
             response = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a League of Legends team strategist."},
+                    {
+                        "role": "system",
+                        "content": "You are a League of Legends team strategist. Always respond in Korean. Use clear, natural Korean and keep explanations concise.",
+                    },
                     {"role": "user", "content": prompt}
                 ]
             )
