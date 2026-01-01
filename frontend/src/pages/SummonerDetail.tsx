@@ -5,6 +5,7 @@ import type { ScoreResponse, MatchPerformance, MatchDetailResponse, PlaystyleTag
 import { Container, Typography, Grid, Card, CardContent, CircularProgress, Divider, Box, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { DDRAGON_BASE, COLOR_BLUE_TEAM, COLOR_RED_TEAM, CHAMPION_ICON_SIZE, ITEM_ICON_SIZE, RUNE_ICON_SIZE } from '../config';
 import RoleRadarChart from '../components/RoleRadarChart';
+import { PerformanceRadarChart } from '../components/PerformanceRadarChart';
 import MarkdownPreview from '../components/MarkdownPreview';
 
 const getChampionIconUrl = (championName: string) =>
@@ -238,13 +239,19 @@ const SummonerDetail: React.FC = () => {
       <Grid container spacing={2}>
         {scores.map((s) => (
           <Grid key={s.role} size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card style={{ backgroundColor: '#f5f5f5' }}>
-              <CardContent>
-                <Typography variant="h6">{s.role}</Typography>
-                <Typography variant="h4" color="primary">{s.score}</Typography>
-                <Typography variant="body2">WR: {s.win_rate}%</Typography>
-                <Typography variant="body2">KDA: {s.kda}</Typography>
-                <Typography variant="body2">Vision: {s.vision_score}</Typography>
+            <Card style={{ backgroundColor: '#f5f5f5', height: '100%' }}>
+              <CardContent sx={{ height: '100%', p: 1 }}>
+                 {/* Existing text summary + New Radar Chart */}
+                 <Box sx={{ mb: 2, textAlign: 'center' }}>
+                    <Typography variant="h6">{s.role}</Typography>
+                    <Typography variant="h4" color="primary">{s.score}</Typography>
+                    <Typography variant="caption" display="block">Total Score</Typography>
+                 </Box>
+
+                 <Box sx={{ height: 250 }}>
+                   <PerformanceRadarChart data={s} />
+                 </Box>
+
               </CardContent>
             </Card>
           </Grid>

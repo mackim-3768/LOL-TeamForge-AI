@@ -16,6 +16,8 @@ export interface ScoreResponse {
   kda: number;
   avg_gold: number;
   vision_score: number;
+  avg_damage: number;
+  avg_cs: number;
 }
 
 export interface PlaystyleTag {
