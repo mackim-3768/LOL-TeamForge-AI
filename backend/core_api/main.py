@@ -73,6 +73,8 @@ class ScoreResponse(BaseModel):
     kda: float
     avg_gold: float
     vision_score: float
+    avg_damage: float
+    avg_cs: float
 
 class AnalysisResponse(BaseModel):
     analysis: str
@@ -248,6 +250,8 @@ def _compute_role_scores_for_summoner(
         avg_kda = sum(m.kda for m in matches) / total_games
         avg_gold = sum(m.gold_per_min for m in matches) / total_games
         avg_vision = sum(m.vision_score for m in matches) / total_games
+        avg_damage = sum((m.total_damage_dealt_to_champions or 0) for m in matches) / total_games
+        avg_cs = sum((m.total_minions_killed or 0) for m in matches) / total_games
         win_rate = (wins / total_games) * 100
 
         # Simple Scoring Algorithm (0-100)
@@ -272,6 +276,8 @@ def _compute_role_scores_for_summoner(
                 kda=round(avg_kda, 2),
                 avg_gold=round(avg_gold, 1),
                 vision_score=round(avg_vision, 1),
+                avg_damage=round(avg_damage, 1),
+                avg_cs=round(avg_cs, 1),
             )
         )
 
